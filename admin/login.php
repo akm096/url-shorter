@@ -5,6 +5,10 @@ require_once __DIR__ . '/../app/db.php';
 require_once __DIR__ . '/../app/auth.php';
 require_once __DIR__ . '/../app/csrf.php';
 require_once __DIR__ . '/../app/functions.php';
+require_once __DIR__ . '/../app/security.php';
+
+// Send security headers
+\App\security\send_security_headers();
 
 use App\auth;
 
@@ -33,16 +37,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?><!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <title>Yönetici Girişi</title>
     <style>
-        body {font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 40px;}
-        .login-box {background-color: white; padding: 20px; margin: 0 auto; max-width: 400px; border: 1px solid #ddd; border-radius: 4px;}
-        .login-box h1 {margin-top: 0;}
-        .error {color: red;}
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 40px;
+        }
+
+        .login-box {
+            background-color: white;
+            padding: 20px;
+            margin: 0 auto;
+            max-width: 400px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .login-box h1 {
+            margin-top: 0;
+        }
+
+        .error {
+            color: red;
+        }
     </style>
 </head>
+
 <body>
     <div class="login-box">
         <h1>Yönetici Girişi</h1>
@@ -60,4 +84,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
     </div>
 </body>
+
 </html>

@@ -8,6 +8,49 @@ namespace App;
 use App\db;
 
 /**
+ * Reserved slugs that cannot be used for short URLs.
+ * These are system paths that could cause routing conflicts.
+ */
+const RESERVED_SLUGS = [
+    'admin',
+    'app',
+    'storage',
+    'go',
+    'api',
+    'login',
+    'logout',
+    'register',
+    'dashboard',
+    'assets',
+    'static',
+    'css',
+    'js',
+    'images',
+    'img',
+    'fonts',
+    'favicon.ico',
+    'robots.txt',
+    'sitemap.xml',
+    '.htaccess',
+    '.git',
+];
+
+/**
+ * Maximum allowed slug length.
+ */
+const MAX_SLUG_LENGTH = 50;
+
+/**
+ * Minimum allowed slug length.
+ */
+const MIN_SLUG_LENGTH = 1;
+
+/**
+ * Maximum allowed URL length.
+ */
+const MAX_URL_LENGTH = 2048;
+
+/**
  * XSS önleme amaçlı çıktı kaçış fonksiyonu.
  *
  * @param string|null $string
@@ -15,7 +58,41 @@ use App\db;
  */
 function e($value): string
 {
-    return htmlspecialchars((string)$value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+/**
+ * Checks if slug is in the reserved list.
+ *
+ * @param string $slug
+ * @return bool True if reserved (not allowed)
+ */
+function is_reserved_slug(string $slug): bool
+{
+    return in_array(strtolower($slug), array_map('strtolower', RESERVED_SLUGS), true);
+}
+
+/**
+ * Validates slug length.
+ *
+ * @param string $slug
+ * @return bool True if valid length
+ */
+function validate_slug_length(string $slug): bool
+{
+    $len = strlen($slug);
+    return $len >= MIN_SLUG_LENGTH && $len <= MAX_SLUG_LENGTH;
+}
+
+/**
+ * Validates URL length.
+ *
+ * @param string $url
+ * @return bool True if valid length
+ */
+function validate_url_length(string $url): bool
+{
+    return strlen($url) <= MAX_URL_LENGTH;
 }
 
 /**
@@ -27,7 +104,7 @@ function e($value): string
  */
 function validate_slug(string $slug): bool
 {
-    return (bool)preg_match('/^[A-Za-z0-9_-]+$/', $slug);
+    return (bool) preg_match('/^[A-Za-z0-9_-]+$/', $slug);
 }
 
 /**

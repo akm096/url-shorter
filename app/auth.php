@@ -19,9 +19,9 @@ function start_session(): void
         $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
         session_set_cookie_params([
             'lifetime' => 0,
-            'path'     => '/',
-            'domain'   => '',
-            'secure'   => $secure,
+            'path' => '/',
+            'domain' => '',
+            'secure' => $secure,
             'httponly' => true,
             'samesite' => 'Strict',
         ]);
@@ -110,23 +110,32 @@ function check_rate_limit(): bool
 {
     $file = __DIR__ . '/../storage/login_attempts.json';
     $maxAttempts = 5;
-    $window      = 15 * 60; // saniye
+    $window = 15 * 60; // seconds
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $attemptsData = [];
+
     if (file_exists($file)) {
-        $json = file_get_contents($file);
-        $attemptsData = json_decode($json, true) ?: [];
+        // Use file locking to prevent race conditions
+        $handle = fopen($file, 'r');
+        if ($handle) {
+            flock($handle, LOCK_SH); // Shared lock for reading
+            $json = fread($handle, filesize($file) ?: 1);
+            flock($handle, LOCK_UN);
+            fclose($handle);
+            $attemptsData = json_decode($json, true) ?: [];
+        }
     }
+
     $now = time();
-    // Eski girişleri temizle
+    // Clean old entries
     foreach ($attemptsData as $ipKey => $records) {
         $attemptsData[$ipKey] = array_filter($records, static function ($timestamp) use ($now, $window) {
             return $timestamp > $now - $window;
         });
     }
+
     $currentAttempts = $attemptsData[$ip] ?? [];
     if (count($currentAttempts) >= $maxAttempts) {
-        // Fazla denemeden dolayı engelle
         return false;
     }
     return true;
@@ -142,13 +151,48 @@ function log_failed_attempt(): void
     $file = __DIR__ . '/../storage/login_attempts.json';
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $attemptsData = [];
-    if (file_exists($file)) {
-        $json = file_get_contents($file);
+    $window = 15 * 60;
+    $now = time();
+
+    // Ensure storage directory exists
+    $dir = dirname($file);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+
+    // Use exclusive file locking
+    $handle = fopen($file, 'c+');
+    if (!$handle) {
+        return;
+    }
+
+    flock($handle, LOCK_EX); // Exclusive lock for read+write
+
+    $size = filesize($file);
+    if ($size > 0) {
+        $json = fread($handle, $size);
         $attemptsData = json_decode($json, true) ?: [];
     }
-    $attemptsData[$ip][] = time();
-    // Dosyayı yeniden kaydet
-    file_put_contents($file, json_encode($attemptsData, JSON_PRETTY_PRINT));
+
+    // Clean old entries while we're at it
+    foreach ($attemptsData as $ipKey => $records) {
+        $attemptsData[$ipKey] = array_values(array_filter($records, static function ($timestamp) use ($now, $window) {
+            return $timestamp > $now - $window;
+        }));
+        if (empty($attemptsData[$ipKey])) {
+            unset($attemptsData[$ipKey]);
+        }
+    }
+
+    $attemptsData[$ip][] = $now;
+
+    // Write back
+    fseek($handle, 0);
+    ftruncate($handle, 0);
+    fwrite($handle, json_encode($attemptsData, JSON_PRETTY_PRINT));
+
+    flock($handle, LOCK_UN);
+    fclose($handle);
 }
 
 /**
@@ -160,13 +204,32 @@ function reset_rate_limit(): void
 {
     $file = __DIR__ . '/../storage/login_attempts.json';
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+
     if (!file_exists($file)) {
         return;
     }
-    $json = file_get_contents($file);
-    $attemptsData = json_decode($json, true) ?: [];
-    if (isset($attemptsData[$ip])) {
-        unset($attemptsData[$ip]);
-        file_put_contents($file, json_encode($attemptsData, JSON_PRETTY_PRINT));
+
+    $handle = fopen($file, 'c+');
+    if (!$handle) {
+        return;
     }
+
+    flock($handle, LOCK_EX);
+
+    $size = filesize($file);
+    if ($size > 0) {
+        $json = fread($handle, $size);
+        $attemptsData = json_decode($json, true) ?: [];
+
+        if (isset($attemptsData[$ip])) {
+            unset($attemptsData[$ip]);
+
+            fseek($handle, 0);
+            ftruncate($handle, 0);
+            fwrite($handle, json_encode($attemptsData, JSON_PRETTY_PRINT));
+        }
+    }
+
+    flock($handle, LOCK_UN);
+    fclose($handle);
 }

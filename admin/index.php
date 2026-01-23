@@ -1,36 +1,37 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '1');
-error_reporting(E_ALL);
-
 require_once __DIR__ . '/../app/db.php';
 require_once __DIR__ . '/../app/auth.php';
 require_once __DIR__ . '/../app/csrf.php';
 require_once __DIR__ . '/../app/functions.php';
+require_once __DIR__ . '/../app/security.php';
+
+// Send security headers
+\App\security\send_security_headers();
 
 use App\auth;
 use App\db;
-// Fonksiyonları tam nitelikle çağıracağız.
 
-// Giriş kontrolü
+// Login check
 auth\require_login();
 
-// CSRF için token
+// CSRF token
 $csrfToken = \App\csrf_token();
 
-// Silme veya aktif/pasif işlemleri
-if (isset($_GET['action'], $_GET['id'], $_GET['csrf_token'])) {
-    $action = $_GET['action'];
-    $id     = (int)$_GET['id'];
-    $token  = $_GET['csrf_token'];
+// Handle POST actions (delete/toggle) - more secure than GET
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['id'], $_POST['csrf_token'])) {
+    $action = $_POST['action'];
+    $id     = (int)$_POST['id'];
+    $token  = $_POST['csrf_token'];
+    
     if (\App\verify_csrf($token)) {
         if ($action === 'delete') {
             db\delete_link($id);
             header('Location: index.php');
             exit;
         } elseif ($action === 'toggle') {
-            // ID ile kayıt getir ve aktiflik durumunu tersine çevir
+            // Get record and toggle active status
             $pdo = db\get_db();
             $stmt = $pdo->prepare('SELECT * FROM links WHERE id = ?');
             $stmt->execute([$id]);
@@ -46,7 +47,7 @@ if (isset($_GET['action'], $_GET['id'], $_GET['csrf_token'])) {
     }
 }
 
-// Arama
+// Search
 $search = $_GET['search'] ?? null;
 
 $links = db\get_all_links($search);
@@ -62,6 +63,18 @@ $stats = db\get_stats();
         table {border-collapse: collapse; width: 100%; margin-top: 20px;}
         th, td {border: 1px solid #ddd; padding: 8px; text-align: left;}
         th {background-color: #f2f2f2;}
+        .actions {white-space: nowrap;}
+        .actions form {display: inline;}
+        .actions button {
+            background: none;
+            border: none;
+            color: #0066cc;
+            cursor: pointer;
+            padding: 0;
+            font: inherit;
+            text-decoration: underline;
+        }
+        .actions button:hover {color: #004499;}
         .actions a {margin-right: 5px;}
         .stats {margin-top: 20px;}
         .top-bar {display: flex; justify-content: space-between; align-items: center;}
@@ -76,7 +89,7 @@ $stats = db\get_stats();
         </div>
     </div>
     <form method="get" action="" style="margin-top:20px;">
-<input type="text" name="search" placeholder="Slug veya URL ara" value="<?php echo \App\e($search); ?>">
+        <input type="text" name="search" placeholder="Slug veya URL ara" value="<?php echo \App\e($search); ?>">
         <button type="submit">Ara</button>
     </form>
     <table>
@@ -93,7 +106,7 @@ $stats = db\get_stats();
                 <th>İşlemler</th>
             </tr>
         </thead>
-<tbody>
+        <tbody>
 <?php if (!empty($links)): ?>
     <?php foreach ($links as $link): ?>
         <tr>
@@ -112,15 +125,19 @@ $stats = db\get_stats();
             <td class="actions">
                 <a href="edit.php?id=<?php echo \App\e($link['id']); ?>">Düzenle</a>
                 |
-                <a href="index.php?action=toggle&id=<?php echo \App\e($link['id']); ?>&csrf_token=<?php echo \App\e($csrfToken); ?>"
-                   onclick="return confirm('Aktiflik durumunu değiştirmek istiyor musunuz?');">
-                    <?php echo !empty($link['active']) ? 'Pasif Yap' : 'Aktif Yap'; ?>
-                </a>
+                <form method="post" action="index.php" onsubmit="return confirm('Aktiflik durumunu değiştirmek istiyor musunuz?');">
+                    <input type="hidden" name="csrf_token" value="<?php echo \App\e($csrfToken); ?>">
+                    <input type="hidden" name="action" value="toggle">
+                    <input type="hidden" name="id" value="<?php echo \App\e($link['id']); ?>">
+                    <button type="submit"><?php echo !empty($link['active']) ? 'Pasif Yap' : 'Aktif Yap'; ?></button>
+                </form>
                 |
-                <a href="index.php?action=delete&id=<?php echo \App\e($link['id']); ?>&csrf_token=<?php echo \App\e($csrfToken); ?>"
-                   onclick="return confirm('Bu linki silmek istediğinizden emin misiniz?');">
-                    Sil
-                </a>
+                <form method="post" action="index.php" onsubmit="return confirm('Bu linki silmek istediğinizden emin misiniz?');">
+                    <input type="hidden" name="csrf_token" value="<?php echo \App\e($csrfToken); ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="<?php echo \App\e($link['id']); ?>">
+                    <button type="submit">Sil</button>
+                </form>
             </td>
         </tr>
     <?php endforeach; ?>
