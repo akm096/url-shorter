@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'created_at' => date('Y-m-d H:i:s'),
                 'active' => 1,
             ];
-            
+
             // Try to insert, handle potential race condition with unique constraint
             try {
                 db\insert_link($data);
@@ -279,10 +279,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         function copyShortUrl() {
             var el = document.getElementById('shortUrl');
+            var btn = document.querySelector('.ghost');
             if (!el) return;
-            el.select();
-            el.setSelectionRange(0, 99999);
-            try { document.execCommand('copy'); } catch (e) { }
+
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(el.value).then(function () {
+                    showCopied(btn);
+                });
+            } else {
+                el.select();
+                el.setSelectionRange(0, 99999);
+                try {
+                    document.execCommand('copy');
+                    showCopied(btn);
+                } catch (e) { }
+            }
+        }
+
+        function showCopied(btn) {
+            if (!btn) return;
+            var orig = btn.textContent;
+            btn.textContent = '✓ Kopyalandı';
+            btn.style.background = '#4caf50';
+            btn.style.color = '#fff';
+            btn.style.borderColor = '#4caf50';
+            setTimeout(function () {
+                btn.textContent = orig;
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }, 1500);
         }
     </script>
 </body>
