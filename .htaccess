@@ -1,0 +1,19 @@
+RewriteEngine On
+
+# Uygulama ve depolama klasörlerine doğrudan erişimi kapat
+RewriteRule ^app/ - [F,L]
+RewriteRule ^storage/ - [F,L]
+
+# Pretty URL yapılandırması
+# /go/slug veya doğrudan /slug adreslerini index.php'ye yönlendir
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(go/)?([A-Za-z0-9_-]+)/?$ index.php?slug=$2 [L,QSA]
+
+# Diğer tüm istekler index.php'ye gitsin
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
+
+# Özel 404 sayfası
+ErrorDocument 404 /404.php
