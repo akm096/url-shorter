@@ -205,3 +205,116 @@ function get_ip_country(string $ip): ?string
 
     return null;
 }
+
+/**
+ * Check rate limit for an IP and action.
+ * Returns true if allowed, false if rate limited.
+ * 
+ * @param string $ip IP address
+ * @param string $action Action identifier (e.g., 'create_link')
+ * @param int $limit Max allowed requests (0 or -1 = unlimited)
+ * @param int $seconds Time window in seconds
+ * @return bool
+ */
+function check_rate_limit(string $ip, string $action, int $limit, int $seconds): bool
+{
+    // Skip if disabled
+    if ($limit <= 0) {
+        return true;
+    }
+
+    $pdo = db\get_db();
+    $now = date('Y-m-d H:i:s');
+
+    // Check existing record
+    $stmt = $pdo->prepare('SELECT id, request_count, reset_at FROM rate_limits WHERE ip_address = ? AND action = ? LIMIT 1');
+    $stmt->execute([$ip, $action]);
+    $record = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+    if ($record) {
+        // Check if reset time has passed
+        if (strtotime($record['reset_at']) <= time()) {
+            // Reset counter
+            $newReset = date('Y-m-d H:i:s', time() + $seconds);
+            $stmt = $pdo->prepare('UPDATE rate_limits SET request_count = 1, reset_at = ? WHERE id = ?');
+            $stmt->execute([$newReset, $record['id']]);
+            return true;
+        }
+
+        // Check if limit exceeded
+        if ((int) $record['request_count'] >= $limit) {
+            return false; // Rate limited
+        }
+
+        // Increment counter
+        $stmt = $pdo->prepare('UPDATE rate_limits SET request_count = request_count + 1 WHERE id = ?');
+        $stmt->execute([$record['id']]);
+        return true;
+    }
+
+    // Create new record
+    $resetAt = date('Y-m-d H:i:s', time() + $seconds);
+    $stmt = $pdo->prepare('INSERT INTO rate_limits (ip_address, action, request_count, reset_at) VALUES (?, ?, 1, ?)');
+    $stmt->execute([$ip, $action, $resetAt]);
+    return true;
+}
+
+/**
+ * Check if URL is safe using Google Safe Browsing API.
+ * Returns true if safe (or API not configured), false if malicious.
+ * 
+ * @param string $url URL to check
+ * @param string $apiKey Google Safe Browsing API key (empty = skip check)
+ * @return bool
+ */
+function is_url_safe(string $url, string $apiKey): bool
+{
+    // Skip if no API key configured
+    if (empty($apiKey)) {
+        return true;
+    }
+
+    $apiUrl = 'https://safebrowsing.googleapis.com/v4/threatMatches:find?key=' . urlencode($apiKey);
+
+    $body = json_encode([
+        'client' => [
+            'clientId' => 'url-shortener',
+            'clientVersion' => '1.0'
+        ],
+        'threatInfo' => [
+            'threatTypes' => ['MALWARE', 'SOCIAL_ENGINEERING', 'UNWANTED_SOFTWARE', 'POTENTIALLY_HARMFUL_APPLICATION'],
+            'platformTypes' => ['ANY_PLATFORM'],
+            'threatEntryTypes' => ['URL'],
+            'threatEntries' => [
+                ['url' => $url]
+            ]
+        ]
+    ]);
+
+    $options = [
+        'http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/json\r\n",
+            'content' => $body,
+            'timeout' => 3,
+            'ignore_errors' => true
+        ]
+    ];
+
+    $context = stream_context_create($options);
+
+    try {
+        $response = @file_get_contents($apiUrl, false, $context);
+        if ($response) {
+            $data = json_decode($response, true);
+            // If matches found, URL is unsafe
+            if (isset($data['matches']) && count($data['matches']) > 0) {
+                return false;
+            }
+        }
+    } catch (\Exception $e) {
+        // On error, allow the URL (fail open for availability)
+    }
+
+    return true;
+}

@@ -23,6 +23,8 @@ Basit, güvenli ve hızlı URL kısaltma servisi. PHP ile yazılmış, framework
 - ✅ Kendini İmha Eden Notlar (Burn After Read)
 - ✅ Karma Koleksiyonlar (Link + Not Bir Arada)
 - ✅ Gelişmiş Bio Pages (Bio sayfalarında not gösterimi)
+- ✅ Rate Limiting (IP bazlı istek sınırlama)
+- ✅ Google Safe Browsing (Zararlı URL koruması)
 
 ## Kurulum
 

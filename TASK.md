@@ -29,8 +29,8 @@
 - [x] **Karma Koleksiyonlar:** Koleksiyonlara hem link hem de not ekleme desteği.
 
 ### 🧹 Bakım & Güvenlik
-- [ ] Spam/Zararlı Link Koruması (Google Safe Browsing Entegrasyonu).
-- [ ] Rate Limiting (Kullanıcı bazlı tıklama/oluşturma sınırı).
+- [x] Spam/Zararlı Link Koruması (Google Safe Browsing Entegrasyonu).
+- [x] Rate Limiting (Kullanıcı bazlı oluşturma sınırı).
 
 ## 🛠️ Mevcut Teknik Durum
 - **Dil:** PHP 7.4+ (Framework-suz, Saf PHP)

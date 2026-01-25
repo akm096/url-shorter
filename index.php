@@ -572,6 +572,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$error) {
+            // Rate Limiting Check
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+            $rateLimit = (int) ($config['rate_limit'] ?? 60);
+            $rateLimitTime = (int) ($config['rate_limit_time'] ?? 60);
+
+            if (!\App\check_rate_limit($clientIp, 'create_content', $rateLimit, $rateLimitTime)) {
+                $error = 'Çok fazla istek gönderdiniz. Lütfen biraz bekleyip tekrar deneyin.';
+            }
+        }
+
+        if (!$error) {
             if ($type === 'url') {
                 $target_url = trim((string) ($_POST['target_url'] ?? ''));
                 $title = trim((string) ($_POST['title'] ?? ''));
@@ -598,7 +609,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $og_description = trim($_POST['og_description'] ?? '');
                     $og_image = trim($_POST['og_image'] ?? '');
 
-                    // DB Insert Link
+                    // Safe Browsing Check
+                    $safeBrowsingKey = $config['safe_browsing_api_key'] ?? '';
+                    if (!empty($safeBrowsingKey) && !\App\is_url_safe($target_url, $safeBrowsingKey)) {
+                        $error = 'Bu URL zararlı veya tehlikeli olarak işaretlenmiş. Kısaltılamaz.';
+                    }
+                }
+
+                // DB Insert Link (only if no error)
+                if (!$error) {
                     try {
                         db\insert_link([
                             'slug' => $custom_slug,

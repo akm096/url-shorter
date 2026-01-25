@@ -43,4 +43,11 @@ return [
 
   // Timezone for date/time functions
   'timezone' => 'UTC',
+
+  // Rate Limiting (0 or -1 to disable)
+  'rate_limit' => 60, // Max requests
+  'rate_limit_time' => 60, // Per seconds (e.g. 60 requests per 60 seconds)
+
+  // Google Safe Browsing API Key (Leave empty to disable)
+  'safe_browsing_api_key' => '',
 ];

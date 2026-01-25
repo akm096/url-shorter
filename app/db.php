@@ -173,8 +173,21 @@ function initialize_database(PDO $pdo, string $driver): void
                 sort_order INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
                 FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+                FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
             )'
         );
+
+        // Rate Limits (SQLite)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS rate_limits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip_address TEXT NOT NULL,
+                action TEXT NOT NULL,
+                request_count INTEGER NOT NULL DEFAULT 1,
+                reset_at TEXT NOT NULL
+            )'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_action ON rate_limits (ip_address, action)');
     } elseif ($driver === 'mysql') {
         // MySQL için tablo oluşturma
         $pdo->exec(
@@ -321,6 +334,17 @@ function initialize_database(PDO $pdo, string $driver): void
                 sort_order INT NOT NULL DEFAULT 0,
                 FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
                 FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+
+        // Rate Limits (MySQL)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS rate_limits (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                ip_address VARCHAR(45) NOT NULL,
+                action VARCHAR(50) NOT NULL,
+                request_count INT UNSIGNED NOT NULL DEFAULT 1,
+                reset_at DATETIME NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 
