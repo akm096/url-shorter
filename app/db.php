@@ -95,7 +95,10 @@ function initialize_database(PDO $pdo, string $driver): void
                 active INTEGER NOT NULL DEFAULT 1,
                 password_hash TEXT DEFAULT NULL,
                 expires_at TEXT DEFAULT NULL,
-                click_limit INTEGER DEFAULT NULL
+                click_limit INTEGER DEFAULT NULL,
+                og_title TEXT DEFAULT NULL,
+                og_description TEXT DEFAULT NULL,
+                og_image TEXT DEFAULT NULL
             )'
         );
         // Migration: Add new columns if they don't exist
@@ -111,6 +114,30 @@ function initialize_database(PDO $pdo, string $driver): void
             $pdo->exec('ALTER TABLE links ADD COLUMN click_limit INTEGER DEFAULT NULL');
         } catch (\Exception $e) {
         }
+        try {
+            $pdo->exec('ALTER TABLE links ADD COLUMN og_title TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE links ADD COLUMN og_description TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE links ADD COLUMN og_image TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+
+        // System Logs (SQLite)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS system_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                action TEXT NOT NULL,
+                details TEXT,
+                ip_address TEXT,
+                created_at TEXT NOT NULL
+            )'
+        );
     } elseif ($driver === 'mysql') {
         // MySQL için tablo oluşturma
         $pdo->exec(
@@ -125,7 +152,10 @@ function initialize_database(PDO $pdo, string $driver): void
                 active TINYINT(1) NOT NULL DEFAULT 1,
                 password_hash VARCHAR(255) DEFAULT NULL,
                 expires_at DATETIME DEFAULT NULL,
-                click_limit INT UNSIGNED DEFAULT NULL
+                click_limit INT UNSIGNED DEFAULT NULL,
+                og_title TEXT DEFAULT NULL,
+                og_description TEXT DEFAULT NULL,
+                og_image TEXT DEFAULT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 
@@ -140,6 +170,18 @@ function initialize_database(PDO $pdo, string $driver): void
         }
         try {
             $pdo->exec('ALTER TABLE links ADD COLUMN click_limit INT UNSIGNED DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE links ADD COLUMN og_title TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE links ADD COLUMN og_description TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE links ADD COLUMN og_image TEXT DEFAULT NULL');
         } catch (\Exception $e) {
         }
 
@@ -170,6 +212,7 @@ function initialize_database(PDO $pdo, string $driver): void
                 os VARCHAR(50) DEFAULT NULL,
                 device_type VARCHAR(20) DEFAULT NULL,
                 referer VARCHAR(255) DEFAULT NULL,
+                country_code VARCHAR(2) DEFAULT NULL,
                 created_at DATETIME NOT NULL,
                 FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
@@ -184,10 +227,33 @@ function initialize_database(PDO $pdo, string $driver): void
                 os VARCHAR(50) DEFAULT NULL,
                 device_type VARCHAR(20) DEFAULT NULL,
                 referer VARCHAR(255) DEFAULT NULL,
+                country_code VARCHAR(2) DEFAULT NULL,
                 created_at DATETIME NOT NULL,
                 FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
+
+        // System Logs (MySQL)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS system_logs (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50) DEFAULT NULL,
+                action VARCHAR(50) NOT NULL,
+                details TEXT DEFAULT NULL,
+                ip_address VARCHAR(45) DEFAULT NULL,
+                created_at DATETIME NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+
+        // Migration for stats (MySQL)
+        try {
+            $pdo->exec('ALTER TABLE link_stats ADD COLUMN country_code VARCHAR(2) DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE note_stats ADD COLUMN country_code VARCHAR(2) DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
     }
 
     // SQLite için de notes tablosu ekleyelim (yukarıdaki if bloğuna ek olarak)
@@ -219,6 +285,7 @@ function initialize_database(PDO $pdo, string $driver): void
                 os TEXT,
                 device_type TEXT,
                 referer TEXT,
+                country_code TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
             )'
@@ -233,10 +300,21 @@ function initialize_database(PDO $pdo, string $driver): void
                 os TEXT,
                 device_type TEXT,
                 referer TEXT,
+                country_code TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
             )'
         );
+
+        // Migration for stats (SQLite)
+        try {
+            $pdo->exec('ALTER TABLE link_stats ADD COLUMN country_code TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE note_stats ADD COLUMN country_code TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
     }
 }
 
@@ -263,8 +341,8 @@ function insert_link(array $data): int
 {
     $pdo = get_db();
     $stmt = $pdo->prepare(
-        'INSERT INTO links (slug, target_url, title, redirect_type, click_count, created_at, active, password_hash, expires_at, click_limit)
-         VALUES (:slug, :target_url, :title, :redirect_type, 0, :created_at, :active, :password_hash, :expires_at, :click_limit)'
+        'INSERT INTO links (slug, target_url, title, redirect_type, click_count, created_at, active, password_hash, expires_at, click_limit, og_title, og_description, og_image)
+         VALUES (:slug, :target_url, :title, :redirect_type, 0, :created_at, :active, :password_hash, :expires_at, :click_limit, :og_title, :og_description, :og_image)'
     );
     $stmt->execute([
         ':slug' => $data['slug'],
@@ -276,6 +354,9 @@ function insert_link(array $data): int
         ':password_hash' => $data['password_hash'] ?? null,
         ':expires_at' => $data['expires_at'] ?? null,
         ':click_limit' => $data['click_limit'] ?? null,
+        ':og_title' => $data['og_title'] ?? null,
+        ':og_description' => $data['og_description'] ?? null,
+        ':og_image' => $data['og_image'] ?? null,
     ]);
     return (int) $pdo->lastInsertId();
 }
@@ -290,7 +371,7 @@ function update_link(int $id, array $data): void
 {
     $pdo = get_db();
     $stmt = $pdo->prepare(
-        'UPDATE links SET slug = :slug, target_url = :target_url, title = :title, redirect_type = :redirect_type, active = :active, password_hash = :password_hash, expires_at = :expires_at, click_limit = :click_limit
+        'UPDATE links SET slug = :slug, target_url = :target_url, title = :title, redirect_type = :redirect_type, active = :active, password_hash = :password_hash, expires_at = :expires_at, click_limit = :click_limit, og_title = :og_title, og_description = :og_description, og_image = :og_image
          WHERE id = :id'
     );
     $stmt->execute([
@@ -302,6 +383,9 @@ function update_link(int $id, array $data): void
         ':password_hash' => $data['password_hash'] ?? null,
         ':expires_at' => $data['expires_at'] ?? null,
         ':click_limit' => $data['click_limit'] ?? null,
+        ':og_title' => $data['og_title'] ?? null,
+        ':og_description' => $data['og_description'] ?? null,
+        ':og_image' => $data['og_image'] ?? null,
         ':id' => $id,
     ]);
 }
@@ -567,10 +651,13 @@ function log_link_click(int $linkId): void
 
     $referer = $_SERVER['HTTP_REFERER'] ?? null;
     $createdAt = date('Y-m-d H:i:s');
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    // Country code lookup
+    $countryCode = \App\get_ip_country($ip);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO link_stats (link_id, browser, os, device_type, referer, created_at)
-         VALUES (:link_id, :browser, :os, :device_type, :referer, :created_at)'
+        'INSERT INTO link_stats (link_id, browser, os, device_type, referer, country_code, created_at)
+         VALUES (:link_id, :browser, :os, :device_type, :referer, :country, :created_at)'
     );
     $stmt->execute([
         ':link_id' => $linkId,
@@ -578,6 +665,7 @@ function log_link_click(int $linkId): void
         ':os' => $os,
         ':device_type' => $deviceType,
         ':referer' => $referer,
+        ':country' => $countryCode,
         ':created_at' => $createdAt
     ]);
 }
@@ -633,7 +721,7 @@ function get_daily_click_stats(int $days = 7, ?int $linkId = null): array
  */
 function get_distribution_stats(string $type, ?int $linkId = null): array
 {
-    $validTypes = ['browser', 'os', 'device_type'];
+    $validTypes = ['browser', 'os', 'device_type', 'referer', 'country_code'];
     if (!in_array($type, $validTypes))
         return []; // Basit güvenlik önlemi
 
@@ -693,10 +781,13 @@ function log_note_view(int $noteId): void
 
     $referer = $_SERVER['HTTP_REFERER'] ?? null;
     $createdAt = date('Y-m-d H:i:s');
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    // Country code lookup
+    $countryCode = \App\get_ip_country($ip);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO note_stats (note_id, browser, os, device_type, referer, created_at)
-         VALUES (:note_id, :browser, :os, :device_type, :referer, :created_at)'
+        'INSERT INTO note_stats (note_id, browser, os, device_type, referer, country_code, created_at)
+         VALUES (:note_id, :browser, :os, :device_type, :referer, :country, :created_at)'
     );
     $stmt->execute([
         ':note_id' => $noteId,
@@ -704,6 +795,7 @@ function log_note_view(int $noteId): void
         ':os' => $os,
         ':device_type' => $deviceType,
         ':referer' => $referer,
+        ':country' => $countryCode,
         ':created_at' => $createdAt
     ]);
 }
@@ -753,7 +845,7 @@ function get_daily_note_view_stats(int $days = 7, ?int $noteId = null): array
  */
 function get_note_distribution_stats(string $type, ?int $noteId = null): array
 {
-    $validTypes = ['browser', 'os', 'device_type'];
+    $validTypes = ['browser', 'os', 'device_type', 'referer', 'country_code'];
     if (!in_array($type, $validTypes))
         return [];
 

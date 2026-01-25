@@ -144,3 +144,64 @@ function generate_random_slug(int $length = 6): string
     } while ($existingLink !== null || $existingNote !== null);
     return $slug;
 }
+
+/**
+ * Get country code from IP address using ip-api.com (free for development/hobby).
+ * 
+ * @param string $ip
+ * @return string|null Two letter country code or NULL
+ */
+function get_ip_country(string $ip): ?string
+{
+    if (in_array($ip, ['127.0.0.1', '::1'])) {
+        return 'TR'; // Local test default
+    }
+
+    $url = "http://ip-api.com/json/{$ip}?fields=status,countryCode";
+
+    // Try curl first
+    if (function_exists('curl_init')) {
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+            $response = curl_exec($ch);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($response && !$error) {
+                $data = json_decode($response, true);
+                if ($data && ($data['status'] ?? '') === 'success') {
+                    return $data['countryCode'] ?? null;
+                }
+            }
+        } catch (\Exception $e) {
+            // Fall through to file_get_contents
+        }
+    }
+
+    // Fallback to file_get_contents (works on many shared hosts)
+    if (ini_get('allow_url_fopen')) {
+        try {
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => 2,
+                    'ignore_errors' => true
+                ]
+            ]);
+            $response = @file_get_contents($url, false, $context);
+            if ($response) {
+                $data = json_decode($response, true);
+                if ($data && ($data['status'] ?? '') === 'success') {
+                    return $data['countryCode'] ?? null;
+                }
+            }
+        } catch (\Exception $e) {
+            // Ignore
+        }
+    }
+
+    return null;
+}

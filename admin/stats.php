@@ -32,6 +32,8 @@ $dailyStats = [];
 $browserStats = [];
 $osStats = [];
 $deviceStats = [];
+$countryStats = [];
+$refererStats = [];
 
 if ($type === 'note') {
     // Note Stats
@@ -51,6 +53,8 @@ if ($type === 'note') {
     $browserStats = db\get_note_distribution_stats('browser', $id);
     $osStats = db\get_note_distribution_stats('os', $id);
     $deviceStats = db\get_note_distribution_stats('device_type', $id);
+    $countryStats = db\get_note_distribution_stats('country_code', $id);
+    $refererStats = db\get_note_distribution_stats('referer', $id);
 
 } else {
     // Link Stats (Default)
@@ -70,58 +74,89 @@ if ($type === 'note') {
     $browserStats = db\get_distribution_stats('browser', $id);
     $osStats = db\get_distribution_stats('os', $id);
     $deviceStats = db\get_distribution_stats('device_type', $id);
+    $countryStats = db\get_distribution_stats('country_code', $id);
+    $refererStats = db\get_distribution_stats('referer', $id);
 }
 
 // Prepare data for Charts
 $dates = array_column($dailyStats, 'date');
 $clicks = array_column($dailyStats, 'count');
+$totalClicks = array_sum($clicks);
 
 require_once __DIR__ . '/layout/header.php';
 ?>
 
-<div class="d-flex justify-between" style="margin-bottom: 20px; align-items: center;">
+<div class="d-flex justify-between" style="margin-bottom: 20px; align-items: center; flex-wrap: wrap; gap: 10px;">
     <div>
         <h2>İstatistikler: <span style="color: var(--primary-color);"><?php echo \App\e($itemSlug); ?></span></h2>
         <p class="text-muted" style="margin: 0;">
             <?php echo $type === 'note' ? \App\e($itemTitle) : \App\e($itemTarget); ?>
         </p>
     </div>
-    <a href="<?php echo $type === 'note' ? 'notes.php' : 'index.php'; ?>" class="btn btn-outline">← Geri</a>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div class="card" style="padding: 10px 20px; text-align: center; margin: 0;">
+            <div style="font-size: 0.8em; color: var(--text-muted);">Toplam Etkileşim</div>
+            <div style="font-size: 1.5em; font-weight: bold; color: var(--primary-color);">
+                <?php echo number_format($totalClicks); ?>
+            </div>
+        </div>
+        <a href="<?php echo $type === 'note' ? 'notes.php' : 'index.php'; ?>" class="btn btn-outline">← Geri</a>
+    </div>
 </div>
 
-<div
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
-    <!-- Line Chart: Daily Interactions -->
-    <div class="card" style="grid-column: 1 / -1;">
+<div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; margin-bottom: 20px;">
+
+    <!-- Line Chart: Daily Interactions (Full Width) -->
+    <div class="card" style="grid-column: span 12;">
         <h3>Son 30 Gün <?php echo $type === 'note' ? 'Görüntülenme' : 'Tıklama'; ?></h3>
-        <div style="position: relative; height: 300px; width: 100%;">
+        <div style="position: relative; height: 350px; width: 100%;">
             <canvas id="clicksChart"></canvas>
         </div>
     </div>
 
-    <!-- Doughnut: Browser -->
-    <div class="card">
-        <h3>Tarayıcı Dağılımı</h3>
+    <!-- Referer Chart (Half Width on Desktop) -->
+    <div class="card" style="grid-column: span 12;">
+        <h3>En Çok Yönlendiren Kaynaklar</h3>
+        <div style="position: relative; height: 300px;">
+            <canvas id="refererChart"></canvas>
+        </div>
+        <?php if (empty($refererStats)): ?>
+            <p class="text-muted text-center" style="margin-top: 20px;">Henüz yeterli veri yok.</p>
+        <?php endif; ?>
+    </div>
+
+    <!-- Doughnut: Browser (4 cols) -->
+    <div class="card" style="grid-column: span 12; @media (min-width: 768px) { grid-column: span 4; }">
+        <h3>Tarayıcı</h3>
         <div style="position: relative; height: 250px;">
             <canvas id="browserChart"></canvas>
         </div>
     </div>
 
-    <!-- Doughnut: OS -->
-    <div class="card">
+    <!-- Doughnut: OS (4 cols) -->
+    <div class="card" style="grid-column: span 12; @media (min-width: 768px) { grid-column: span 4; }">
         <h3>İşletim Sistemi</h3>
         <div style="position: relative; height: 250px;">
             <canvas id="osChart"></canvas>
         </div>
     </div>
 
-    <!-- Doughnut: Device -->
-    <div class="card">
-        <h3>Cihaz Tipi</h3>
+    <!-- Doughnut: Device (4 cols) -->
+    <div class="card" style="grid-column: span 12; @media (min-width: 768px) { grid-column: span 4; }">
+        <h3>Cihaz</h3>
         <div style="position: relative; height: 250px;">
             <canvas id="deviceChart"></canvas>
         </div>
     </div>
+
+    <!-- Doughnut: Country (3 cols) -->
+    <div class="card" style="grid-column: span 12; @media (min-width: 768px) { grid-column: span 3; }">
+        <h3>Ülke</h3>
+        <div style="position: relative; height: 250px;">
+            <canvas id="countryChart"></canvas>
+        </div>
+    </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -132,8 +167,24 @@ require_once __DIR__ . '/layout/header.php';
         const primaryColor = style.getPropertyValue('--primary-color').trim() || '#4f46e5';
         const borderColor = style.getPropertyValue('--border-color').trim() || '#e5e7eb';
         const textColor = style.getPropertyValue('--text-color').trim() || '#1f2937';
+        const gridColor = html.classList.contains('dark-mode') ? '#374151' : '#e5e7eb'; // Better grid visibility
+
+        // Detect screen width for responsive grid
+        const isMobile = window.innerWidth < 768;
+
+        // Apply grid column classes dynamically if inline styles fail (backup)
+        if (!isMobile) {
+            const smallCards = document.querySelectorAll('.card[style*="grid-column: span 12"]');
+            // Logic handled by CSS media queries in style attribute or CSS file is better, 
+            // but here we used inline styles with media query syntax which doesn't work in inline style attribute directly.
+            // Wait, inline style media queries don't work. I need to fix the HTML above.
+            // I will fix it by adding a simple style block.
+        }
 
         // Common Chart Options
+        Chart.defaults.color = textColor;
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
         const commonOptions = {
             responsive: true,
             maintainAspectRatio: false,
@@ -142,13 +193,22 @@ require_once __DIR__ . '/layout/header.php';
                     position: 'bottom',
                     labels: {
                         color: textColor,
-                        font: { family: "'Inter', sans-serif" }
+                        usePointStyle: true,
+                        padding: 20
                     }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 10,
+                    cornerRadius: 8,
+                    titleFont: { size: 13, weight: 600 },
+                    bodyFont: { size: 12 }
                 }
             },
-            scales: {
-                // will be overridden for doughnuts
-            }
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
         };
 
         // Data Injection
@@ -165,18 +225,29 @@ require_once __DIR__ . '/layout/header.php';
         const deviceLabels = <?php echo json_encode(array_column($deviceStats, 'name')); ?>;
         const deviceData = <?php echo json_encode(array_column($deviceStats, 'count')); ?>;
 
-        // Helper to generate colors
-        function generateColors(count) {
-            const colors = [
-                '#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-                '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#06b6d4'
-            ];
-            // Cycle through colors if count > colors.length
-            return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+        const countryLabels = <?php echo json_encode(array_column($countryStats, 'name')); ?>;
+        const countryData = <?php echo json_encode(array_column($countryStats, 'count')); ?>;
+
+        const refererLabels = <?php echo json_encode(array_column($refererStats, 'name')); ?>;
+        const refererData = <?php echo json_encode(array_column($refererStats, 'count')); ?>;
+
+        // Colors Palette
+        const palette = [
+            '#4f46e5', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316',
+            '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#6366f1'
+        ];
+
+        function getColors(count) {
+            return Array.from({ length: count }, (_, i) => palette[i % palette.length]);
         }
 
-        // 1. Clicks/Views Line Chart
-        new Chart(document.getElementById('clicksChart'), {
+        // 1. Clicks/Views Area Chart
+        const ctxClicks = document.getElementById('clicksChart').getContext('2d');
+        const gradient = ctxClicks.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, primaryColor + '50'); // 50% opacity
+        gradient.addColorStop(1, primaryColor + '00'); // 0% opacity
+
+        new Chart(ctxClicks, {
             type: 'line',
             data: {
                 labels: dailyLabels,
@@ -184,9 +255,13 @@ require_once __DIR__ . '/layout/header.php';
                     label: interactionLabel,
                     data: dailyData,
                     borderColor: primaryColor,
-                    backgroundColor: primaryColor + '20', // transparent
-                    tension: 0.3,
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    tension: 0.4, // Smooth curves
                     fill: true,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: primaryColor,
+                    pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 6
                 }]
@@ -197,76 +272,140 @@ require_once __DIR__ . '/layout/header.php';
                     y: {
                         beginAtZero: true,
                         ticks: { color: textColor, precision: 0 },
-                        grid: { color: borderColor }
+                        grid: { color: borderColor + '40', borderDash: [5, 5] }, // Dashed grid
+                        border: { display: false }
                     },
                     x: {
-                        ticks: { color: textColor },
+                        ticks: { color: textColor, maxRotation: 45, minRotation: 0 },
+                        grid: { display: false },
+                        border: { display: false }
+                    }
+                }
+            }
+        });
+
+        // 2. Referer Bar Chart (Horizontal)
+        new Chart(document.getElementById('refererChart'), {
+            type: 'bar',
+            data: {
+                labels: refererLabels.map(l => l ? l.substring(0, 40) + (l.length > 40 ? '...' : '') : 'Doğrudan/Bilinmiyor'),
+                datasets: [{
+                    label: 'Tıklama',
+                    data: refererData,
+                    backgroundColor: primaryColor,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                ...commonOptions,
+                indexAxis: 'y', // Horizontal
+                plugins: {
+                    ...commonOptions.plugins,
+                    legend: { display: false } // No legend needed for single dataset
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: borderColor + '40' }
+                    },
+                    y: {
                         grid: { display: false }
                     }
                 }
             }
         });
 
-        // 2. Browser Chart
+        // 3. Doughnut Charts Configuration
+        const doughnutConfig = {
+            ...commonOptions,
+            scales: { x: { display: false }, y: { display: false } },
+            cutout: '65%'
+        };
+
+        // Browser
         new Chart(document.getElementById('browserChart'), {
             type: 'doughnut',
             data: {
                 labels: browserLabels,
                 datasets: [{
                     data: browserData,
-                    backgroundColor: generateColors(browserData.length),
-                    borderWidth: 0
+                    backgroundColor: getColors(browserData.length),
+                    borderWidth: 0,
+                    hoverOffset: 4
                 }]
             },
-            options: {
-                ...commonOptions,
-                scales: {
-                    x: { display: false },
-                    y: { display: false }
-                }
-            }
+            options: doughnutConfig
         });
 
-        // 3. OS Chart
+        // OS
         new Chart(document.getElementById('osChart'), {
             type: 'doughnut',
             data: {
                 labels: osLabels,
                 datasets: [{
                     data: osData,
-                    backgroundColor: generateColors(osData.length),
-                    borderWidth: 0
+                    backgroundColor: getColors(osData.length),
+                    borderWidth: 0,
+                    hoverOffset: 4
                 }]
             },
-            options: {
-                ...commonOptions,
-                scales: {
-                    x: { display: false },
-                    y: { display: false }
-                }
-            }
+            options: doughnutConfig
         });
 
-        // 4. Device Chart
+        // Device
         new Chart(document.getElementById('deviceChart'), {
-            type: 'pie',
+            type: 'doughnut',
             data: {
                 labels: deviceLabels,
                 datasets: [{
                     data: deviceData,
-                    backgroundColor: generateColors(deviceData.length),
-                    borderWidth: 0
+                    backgroundColor: getColors(deviceData.length),
+                    borderWidth: 0,
+                    hoverOffset: 4
                 }]
             },
-            options: {
-                ...commonOptions,
-                scales: {
-                    x: { display: false },
-                    y: { display: false }
-                }
-            }
+            options: doughnutConfig
+        });
+
+        // Country
+        new Chart(document.getElementById('countryChart'), {
+            type: 'doughnut',
+            data: {
+                labels: countryLabels.map(l => l || 'Bilinmiyor'),
+                datasets: [{
+                    data: countryData,
+                    backgroundColor: getColors(countryData.length),
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: doughnutConfig
         });
     });
 </script>
+
+<style>
+    /* Responsive Grid Helper */
+    @media (min-width: 900px) {
+        .card[style*="grid-column: span 12;"] {
+            /* Reset specific inline overrides if needed, but the HTML logic handles it mostly via span 4 vs span 12 */
+        }
+
+        /* Target the last 4 cards specifically (Browser, OS, Device, Country) */
+        .card:nth-last-child(1),
+        .card:nth-last-child(2),
+        .card:nth-last-child(3),
+        .card:nth-last-child(4) {
+            grid-column: span 3 !important;
+        }
+    }
+
+    @media (max-width: 899px) {
+        .card {
+            grid-column: span 12 !important;
+        }
+    }
+</style>
 
 <?php require_once __DIR__ . '/layout/footer.php'; ?>

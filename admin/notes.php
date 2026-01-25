@@ -6,12 +6,14 @@ require_once __DIR__ . '/../app/auth.php';
 require_once __DIR__ . '/../app/csrf.php';
 require_once __DIR__ . '/../app/functions.php';
 require_once __DIR__ . '/../app/security.php';
+require_once __DIR__ . '/../app/logger.php';
 
 // Send security headers
 \App\security\send_security_headers();
 
 use App\auth;
 use App\db;
+use App\logger;
 
 // Login check
 auth\require_login();
@@ -29,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token'])) {
 
             if ($action === 'delete') {
                 db\delete_note($id);
+                logger\log_system_action('DELETE_NOTE', "Note ID: $id");
                 header('Location: notes.php?msg=deleted');
                 exit;
             } elseif ($action === 'toggle') {
@@ -52,12 +55,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token'])) {
             if ($bulkAction === 'delete') {
                 foreach ($ids as $id)
                     db\delete_note($id);
+                logger\log_system_action('BULK_DELETE_NOTE', "Count: " . count($ids));
             } elseif ($bulkAction === 'activate') {
                 foreach ($ids as $id)
                     db\toggle_note_status($id, 1);
+                logger\log_system_action('BULK_ACTIVATE_NOTE', "Count: " . count($ids));
             } elseif ($bulkAction === 'passivate') {
                 foreach ($ids as $id)
                     db\toggle_note_status($id, 0);
+                logger\log_system_action('BULK_PASSIVATE_NOTE', "Count: " . count($ids));
             }
             header('Location: notes.php?msg=bulk_updated');
             exit;

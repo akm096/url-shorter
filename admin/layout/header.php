@@ -41,6 +41,7 @@ $currentPage = $currentInfo['basename'];
             <nav class="nav-links d-flex">
                 <a href="index.php" class="<?php echo $currentPage === 'index.php' ? 'active' : ''; ?>">Linkler</a>
                 <a href="notes.php" class="<?php echo $currentPage === 'notes.php' ? 'active' : ''; ?>">Notlar</a>
+                <a href="tools.php" class="<?php echo $currentPage === 'tools.php' ? 'active' : ''; ?>">Araçlar</a>
                 <button id="themeToggle" class="theme-toggle" title="Karanlık Mod">🌙</button>
                 <a href="logout.php" class="logout">Çıkış</a>
             </nav>

@@ -32,6 +32,9 @@ return [
     'password_hash' => 'PUT_HASH_HERE',
   ],
 
+  // Optional API Key for external access to stats (X-API-KEY header)
+  // 'api_key' => 'YOUR_SECRET_API_KEY',
+
   // Default redirect type: 301 (permanent) or 302 (temporary)
   'redirect_default' => 302,
 

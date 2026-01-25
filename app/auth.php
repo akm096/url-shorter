@@ -5,6 +5,9 @@
 
 namespace App\auth;
 
+require_once __DIR__ . '/logger.php';
+
+use App\logger;
 use function App\db\get_config;
 
 /**
@@ -80,9 +83,11 @@ function login(string $password): bool
         session_regenerate_id(true);
         // Başarılı girişte IP giriş sayacı sıfırlanabilir
         reset_rate_limit();
+        logger\log_system_action('LOGIN_SUCCESS', 'Admin user logged in');
         return true;
     }
     // Başarısız giriş log'la
+    logger\log_system_action('LOGIN_FAILED', 'Failed attempt');
     log_failed_attempt();
     return false;
 }

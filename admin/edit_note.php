@@ -11,6 +11,9 @@ require_once __DIR__ . '/../app/security.php';
 
 use App\auth;
 use App\db;
+use App\logger;
+
+require_once __DIR__ . '/../app/logger.php';
 
 auth\require_login();
 
@@ -81,6 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'active' => $active,
                     'password_hash' => $password_hash,
                 ]);
+
+                logger\log_system_action('UPDATE_NOTE', "Note ID: $id | Slug: $slug");
+
                 $success = 'Kayıt güncellendi.';
                 $note = array_merge($note, [
                     'slug' => $slug,
@@ -95,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $error = 'Bir hata oluştu.';
                 }
+                logger\log_system_action('UPDATE_NOTE_ERROR', "ID: $id | Error: " . $e->getMessage());
             }
         }
     }

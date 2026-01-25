@@ -7,10 +7,11 @@ Basit, güvenli ve hızlı URL kısaltma servisi. PHP ile yazılmış, framework
 - ✅ URL kısaltma (otomatik veya özel slug)
 - ✅ Not oluşturma (paylaşılabilir metinler)
 - ✅ 301/302 yönlendirme desteği
-- ✅ Gelişmiş Analitik (Tarayıcı, İşletim Sistemi, Cihaz takibi ve Chart.js grafikleri)
+- ✅ Gelişmiş Analitik (Tarayıcı, İşletim Sistemi, Cihaz, Ülke takibi ve Chart.js grafikleri)
 - ✅ QR Kod desteği (Her link ve not için otomatik oluşturma)
 - ✅ Şifre Korumalı İçerik (Link ve notlar için)
 - ✅ Süreli Linkler & Tıklama Limiti
+- ✅ Veritabanı Yedekleme (Admin panelinden SQL indirme)
 - ✅ Admin paneli (Karanlık Mod desteği ile)
 - ✅ Toplu İşlemler (Silme, Aktif/Pasif yapma - Hızlı Yönetim)
 - ✅ CSRF ve Brute-force koruması

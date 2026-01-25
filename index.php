@@ -67,6 +67,12 @@ if ($slug) {
         db\increment_click_count((int) $link['id']);
         // Analitik verisi kaydet
         db\log_link_click((int) $link['id']);
+
+        // OPEN GRAPH (Sosyal Medya Önizleme)
+        // OPEN GRAPH ve BOT KONTROLÜ İPTAL EDİLDİ
+        // Kullanıcı isteği üzerine botlar için özel sayfa gösterimi kaldırıldı.
+        // Artık herkes (botlar dahil) doğrudan yönlendirilecek.
+
         // 301 veya 302 yönlendirme
         $status = (int) $link['redirect_type'] === 301 ? 301 : 302;
         header('Location: ' . $link['target_url'], true, $status);
@@ -251,6 +257,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $expires_at_val = $expires_at !== '' ? $expires_at : null;
                     $click_limit_val = $click_limit !== '' ? (int) $click_limit : null;
 
+                    // Open Graph
+                    $og_title = trim($_POST['og_title'] ?? '');
+                    $og_description = trim($_POST['og_description'] ?? '');
+                    $og_image = trim($_POST['og_image'] ?? '');
+
                     // DB Insert Link
                     try {
                         db\insert_link([
@@ -263,6 +274,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'password_hash' => $password_hash,
                             'expires_at' => $expires_at_val,
                             'click_limit' => $click_limit_val,
+                            'og_title' => $og_title !== '' ? $og_title : null,
+                            'og_description' => $og_description !== '' ? $og_description : null,
+                            'og_image' => $og_image !== '' ? $og_image : null,
                         ]);
                         $createdUrl = $baseUrl ? ($baseUrl . '/' . $custom_slug) : ('/' . $custom_slug);
                         // PRG: Store in session and redirect
@@ -504,6 +518,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         class="text-muted">(opsiyonel)</span></label>
                                 <input type="number" name="click_limit" id="click_limit"
                                     placeholder="Maksimum tıklama sayısı" min="1">
+                            </div>
+                        </div>
+                    </details>
+
+                    <details style="margin-bottom: 1rem;">
+                        <summary
+                            style="cursor: pointer; color: var(--primary-color); font-weight: 500; margin-bottom: 0.5rem;">
+                            🌐 Sosyal Medya Önizleme</summary>
+                        <div
+                            style="padding: 1rem; background: var(--bg-color); border-radius: var(--radius); margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label for="og_title">Özel Başlık</label>
+                                <input type="text" name="og_title" id="og_title" placeholder="Paylaşım başlığı...">
+                            </div>
+                            <div class="form-group">
+                                <label for="og_description">Özel Açıklama</label>
+                                <textarea name="og_description" id="og_description" placeholder="Paylaşım açıklaması..."
+                                    style="min-height: 80px;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="og_image">Özel Resim URL</label>
+                                <input type="text" name="og_image" id="og_image"
+                                    placeholder="https://site.com/resim.jpg">
                             </div>
                         </div>
                     </details>

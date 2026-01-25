@@ -11,6 +11,9 @@ require_once __DIR__ . '/../app/security.php';
 
 use App\auth;
 use App\db;
+use App\logger;
+
+require_once __DIR__ . '/../app/logger.php';
 
 auth\require_login();
 
@@ -81,6 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $expires_at_val = $expires_at !== '' ? $expires_at : null;
             $click_limit_val = $click_limit !== '' ? (int) $click_limit : null;
 
+            // Open Graph
+            $og_title = trim($_POST['og_title'] ?? '');
+            $og_description = trim($_POST['og_description'] ?? '');
+            $og_image = trim($_POST['og_image'] ?? '');
+
             try {
                 db\update_link($id, [
                     'slug' => $slug,
@@ -91,7 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'password_hash' => $password_hash,
                     'expires_at' => $expires_at_val,
                     'click_limit' => $click_limit_val,
+                    'og_title' => $og_title !== '' ? $og_title : null,
+                    'og_description' => $og_description !== '' ? $og_description : null,
+                    'og_image' => $og_image !== '' ? $og_image : null,
                 ]);
+
+                logger\log_system_action('UPDATE_LINK', "Link ID: $id | Slug: $slug");
+
                 $success = 'Kayıt güncellendi.';
                 $link = array_merge($link, [
                     'slug' => $slug,
@@ -102,6 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'password_hash' => $password_hash,
                     'expires_at' => $expires_at_val,
                     'click_limit' => $click_limit_val,
+                    'og_title' => $og_title !== '' ? $og_title : null,
+                    'og_description' => $og_description !== '' ? $og_description : null,
+                    'og_image' => $og_image !== '' ? $og_image : null,
                 ]);
             } catch (\PDOException $e) {
                 if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate') !== false) {
@@ -109,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $error = 'Bir hata oluştu.';
                 }
+                logger\log_system_action('UPDATE_LINK_ERROR', "ID: $id | Error: " . $e->getMessage());
             }
         }
     }
@@ -195,13 +213,11 @@ require_once __DIR__ . '/layout/header.php';
                         <label for="click_limit">Tıklama Limiti</label>
                         <input type="number" name="click_limit" id="click_limit" placeholder="Maksimum tıklama sayısı"
                             min="1" value="<?php echo $link['click_limit'] ? \App\e($link['click_limit']) : ''; ?>">
-                        <?php if (!empty($link['click_limit'])): ?>
-                            <small class="text-muted">Mevcut:
-                                <?php echo \App\e($link['click_count']); ?>/<?php echo \App\e($link['click_limit']); ?></small>
-                        <?php endif; ?>
                     </div>
                 </div>
             </details>
+
+            <!-- OG Ayarları Kaldırıldı -->
 
             <div style="margin-top: 30px;">
                 <button type="submit" class="btn btn-primary">Değişiklikleri Kaydet</button>

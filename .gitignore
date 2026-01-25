@@ -1,3 +1,13 @@
+# Secrets / local config
 /app/config.php
+.env
+.env.*
+*.pem
+*.key
+/test_links.php
+
+# Runtime storage (kişisel/veri içerebilir)
 /storage/login_attempts.json
+/storage/*.sqlite
+/storage/*.log
 /storage/logs/

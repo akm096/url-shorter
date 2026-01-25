@@ -11,6 +11,9 @@ require_once __DIR__ . '/../app/security.php';
 
 use App\auth;
 use App\db;
+use App\logger;
+
+require_once __DIR__ . '/../app/logger.php';
 
 auth\require_login();
 
@@ -62,6 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'password_hash' => $password_hash,
                 ]);
 
+                logger\log_system_action('CREATE_NOTE', "Slug: $slug | Title: $title");
+
                 // Get base URL
                 $config = require __DIR__ . '/../app/config.php';
                 $baseUrl = rtrim($config['base_url'] ?? '', '/');
@@ -78,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $error = 'Bir hata oluştu.';
                 }
+                logger\log_system_action('CREATE_NOTE_ERROR', "Error: " . $e->getMessage());
             }
         }
     }
