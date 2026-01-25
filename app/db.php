@@ -307,13 +307,31 @@ function update_link(int $id, array $data): void
 }
 
 /**
- * ID ile link kaydını siler.
+ * Linkin durumunu (aktif/pasif) değiştirir.
+ * @param int $id
+ * @param int $status
+ * @return void
+ */
+function toggle_link_status(int $id, int $status): void
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare('UPDATE links SET active = ? WHERE id = ?');
+    $stmt->execute([$status, $id]);
+}
+
+/**
+ * ID ile link kaydını siler ve ilişkili istatistikleri temizler.
  * @param int $id
  * @return void
  */
 function delete_link(int $id): void
 {
     $pdo = get_db();
+    // Manuel cascade: Önce istatistikleri sil
+    $stmtStats = $pdo->prepare('DELETE FROM link_stats WHERE link_id = ?');
+    $stmtStats->execute([$id]);
+
+    // Sonra linki sil
     $stmt = $pdo->prepare('DELETE FROM links WHERE id = ?');
     $stmt->execute([$id]);
 }
@@ -404,13 +422,17 @@ function insert_note(array $data): int
 }
 
 /**
- * ID ile not kaydını siler.
+ * ID ile not kaydını siler ve ilişkili istatistikleri temizler.
  * @param int $id
  * @return void
  */
 function delete_note(int $id): void
 {
     $pdo = get_db();
+    // Manuel cascade: Önce istatistikleri sil
+    $stmtStats = $pdo->prepare('DELETE FROM note_stats WHERE note_id = ?');
+    $stmtStats->execute([$id]);
+
     $stmt = $pdo->prepare('DELETE FROM notes WHERE id = ?');
     $stmt->execute([$id]);
 }

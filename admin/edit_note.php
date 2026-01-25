@@ -16,16 +16,16 @@ auth\require_login();
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if (!$id) {
-    header('Location: index.php');
+    header('Location: notes.php');
     exit;
 }
 
 $pdo = db\get_db();
-$stmt = $pdo->prepare('SELECT * FROM links WHERE id = ?');
+$stmt = $pdo->prepare('SELECT * FROM notes WHERE id = ?');
 $stmt->execute([$id]);
-$link = $stmt->fetch();
-if (!$link) {
-    header('Location: index.php');
+$note = $stmt->fetch();
+if (!$note) {
+    header('Location: notes.php');
     exit;
 }
 
@@ -37,16 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!\App\verify_csrf($token)) {
         $error = 'Geçersiz form isteği.';
     } else {
-        $target_url = trim($_POST['target_url'] ?? '');
+        $content = trim($_POST['content'] ?? '');
         $slug = trim($_POST['slug'] ?? '');
         $title = trim($_POST['title'] ?? '');
-        $redirect_type = (int) ($_POST['redirect_type'] ?? $link['redirect_type']);
         $active = isset($_POST['active']) ? 1 : 0;
 
-        if (!\App\validate_url($target_url)) {
-            $error = 'Geçerli bir URL giriniz.';
-        } elseif (!\App\validate_url_length($target_url)) {
-            $error = 'URL çok uzun. Maksimum ' . \App\MAX_URL_LENGTH . ' karakter.';
+        if ($content === '') {
+            $error = 'İçerik boş bırakılamaz.';
         } elseif ($slug === '') {
             $error = 'Slug boş bırakılamaz.';
         } elseif (!\App\validate_slug($slug)) {
@@ -56,20 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (\App\is_reserved_slug($slug)) {
             $error = 'Bu slug sistem tarafından ayrılmış.';
         } else {
-            $existing = db\get_link_by_slug($slug);
+            $existing = db\get_note_by_slug($slug);
             if ($existing && (int) $existing['id'] !== $id) {
-                $error = 'Bu slug başka bir link tarafından kullanılıyor.';
+                $error = 'Bu slug başka bir not tarafından kullanılıyor.';
             }
         }
 
         if (!$error) {
             // Security options
             $password = trim($_POST['password'] ?? '');
-            $expires_at = trim($_POST['expires_at'] ?? '');
-            $click_limit = trim($_POST['click_limit'] ?? '');
 
             // Only update password if a new one is provided
-            $password_hash = $link['password_hash'] ?? null;
+            $password_hash = $note['password_hash'] ?? null;
             if ($password !== '') {
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
             }
@@ -78,34 +73,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $password_hash = null;
             }
 
-            $expires_at_val = $expires_at !== '' ? $expires_at : null;
-            $click_limit_val = $click_limit !== '' ? (int) $click_limit : null;
-
             try {
-                db\update_link($id, [
+                db\update_note($id, [
                     'slug' => $slug,
-                    'target_url' => $target_url,
+                    'content' => $content,
                     'title' => $title,
-                    'redirect_type' => in_array($redirect_type, [301, 302]) ? $redirect_type : 302,
                     'active' => $active,
                     'password_hash' => $password_hash,
-                    'expires_at' => $expires_at_val,
-                    'click_limit' => $click_limit_val,
                 ]);
                 $success = 'Kayıt güncellendi.';
-                $link = array_merge($link, [
+                $note = array_merge($note, [
                     'slug' => $slug,
-                    'target_url' => $target_url,
+                    'content' => $content,
                     'title' => $title,
-                    'redirect_type' => $redirect_type,
                     'active' => $active,
                     'password_hash' => $password_hash,
-                    'expires_at' => $expires_at_val,
-                    'click_limit' => $click_limit_val,
                 ]);
             } catch (\PDOException $e) {
                 if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate') !== false) {
-                    $error = 'Bu slug başka bir link tarafından kullanılıyor.';
+                    $error = 'Bu slug başka bir not tarafından kullanılıyor.';
                 } else {
                     $error = 'Bir hata oluştu.';
                 }
@@ -119,11 +105,11 @@ require_once __DIR__ . '/layout/header.php';
 
 <div style="max-width: 800px; margin: 0 auto;">
     <div style="margin-bottom: 20px;">
-        <a href="index.php" class="btn btn-outline">← Geri Dön</a>
+        <a href="notes.php" class="btn btn-outline">← Geri Dön</a>
     </div>
 
     <div class="card">
-        <h2 style="margin-top:0;">Link Düzenle</h2>
+        <h2 style="margin-top:0;">Not Düzenle</h2>
 
         <?php if ($error): ?>
             <div class="alert alert-danger"><?php echo \App\e($error); ?></div>
@@ -137,34 +123,24 @@ require_once __DIR__ . '/layout/header.php';
             <?php echo \App\csrf_input(); ?>
 
             <div class="form-group">
-                <label for="target_url">Hedef URL <span class="text-muted">*</span></label>
-                <input type="text" name="target_url" id="target_url" required
-                    value="<?php echo \App\e($link['target_url']); ?>">
+                <label for="title">Başlık <span class="text-muted">(Opsiyonel)</span></label>
+                <input type="text" name="title" id="title" value="<?php echo \App\e($note['title'] ?? ''); ?>">
             </div>
 
             <div class="form-group">
-                <label for="slug">Kısa Kod <span class="text-muted">*</span></label>
-                <input type="text" name="slug" id="slug" required value="<?php echo \App\e($link['slug']); ?>">
+                <label for="slug">Kısa Kod (Slug) <span class="text-muted">*</span></label>
+                <input type="text" name="slug" id="slug" required value="<?php echo \App\e($note['slug']); ?>">
             </div>
 
             <div class="form-group">
-                <label for="title">Not <span class="text-muted">(Opsiyonel)</span></label>
-                <input type="text" name="title" id="title" value="<?php echo \App\e($link['title'] ?? ''); ?>">
-            </div>
-
-            <div class="form-group">
-                <label>Yönlendirme Tipi</label>
-                <select name="redirect_type">
-                    <option value="301" <?php echo $link['redirect_type'] == 301 ? 'selected' : ''; ?>>301 (Kalıcı - SEO
-                        için iyi)</option>
-                    <option value="302" <?php echo $link['redirect_type'] == 302 ? 'selected' : ''; ?>>302 (Geçici -
-                        Varsayılan)</option>
-                </select>
+                <label for="content">İçerik <span class="text-muted">*</span></label>
+                <textarea name="content" id="content" required
+                    style="min-height: 200px;"><?php echo \App\e($note['content']); ?></textarea>
             </div>
 
             <div class="form-group d-flex" style="margin-top: 20px;">
-                <input type="checkbox" name="active" id="active" value="1" <?php echo $link['active'] ? 'checked' : ''; ?> style="width: auto; margin: 0;">
-                <label for="active" style="margin:0; font-weight: normal; cursor: pointer;">Bu link aktif olsun</label>
+                <input type="checkbox" name="active" id="active" value="1" <?php echo $note['active'] ? 'checked' : ''; ?> style="width: auto; margin: 0;">
+                <label for="active" style="margin:0; font-weight: normal; cursor: pointer;">Bu not aktif olsun</label>
             </div>
 
             <details style="margin-top: 20px;">
@@ -176,7 +152,7 @@ require_once __DIR__ . '/layout/header.php';
                         <label for="password">Yeni Şifre <span class="text-muted">(boş bırakırsan mevcut şifre
                                 kalır)</span></label>
                         <input type="password" name="password" id="password" placeholder="Yeni şifre belirle...">
-                        <?php if (!empty($link['password_hash'])): ?>
+                        <?php if (!empty($note['password_hash'])): ?>
                             <div class="d-flex" style="margin-top: 5px;">
                                 <input type="checkbox" name="clear_password" value="1" id="clear_password"
                                     style="width: auto; margin: 0;">
@@ -184,20 +160,6 @@ require_once __DIR__ . '/layout/header.php';
                                     style="margin: 0; font-weight: normal; cursor: pointer; font-size: 0.85rem;">Şifreyi
                                     kaldır</label>
                             </div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="form-group">
-                        <label for="expires_at">Son Kullanma Tarihi</label>
-                        <input type="datetime-local" name="expires_at" id="expires_at"
-                            value="<?php echo $link['expires_at'] ? substr(\App\e($link['expires_at']), 0, 16) : ''; ?>">
-                    </div>
-                    <div class="form-group">
-                        <label for="click_limit">Tıklama Limiti</label>
-                        <input type="number" name="click_limit" id="click_limit" placeholder="Maksimum tıklama sayısı"
-                            min="1" value="<?php echo $link['click_limit'] ? \App\e($link['click_limit']) : ''; ?>">
-                        <?php if (!empty($link['click_limit'])): ?>
-                            <small class="text-muted">Mevcut:
-                                <?php echo \App\e($link['click_count']); ?>/<?php echo \App\e($link['click_limit']); ?></small>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -210,10 +172,9 @@ require_once __DIR__ . '/layout/header.php';
 
         <div
             style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-muted);">
-            <div><strong>ID:</strong> <?php echo \App\e($link['id']); ?></div>
-            <div style="margin-top:5px;"><strong>Toplam Tıklama:</strong> <?php echo \App\e($link['click_count']); ?>
-            </div>
-            <div style="margin-top:5px;"><strong>Oluşturulma Tarihi:</strong> <?php echo \App\e($link['created_at']); ?>
+            <div><strong>ID:</strong> <?php echo \App\e($note['id']); ?></div>
+            <div style="margin-top:5px;"><strong>Görüntülenme:</strong> <?php echo \App\e($note['view_count']); ?></div>
+            <div style="margin-top:5px;"><strong>Oluşturulma Tarihi:</strong> <?php echo \App\e($note['created_at']); ?>
             </div>
         </div>
     </div>

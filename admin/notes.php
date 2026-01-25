@@ -28,19 +28,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token'])) {
             $id = (int) $_POST['id'];
 
             if ($action === 'delete') {
-                db\delete_link($id);
-                header('Location: index.php?msg=deleted');
+                db\delete_note($id);
+                header('Location: notes.php?msg=deleted');
                 exit;
             } elseif ($action === 'toggle') {
                 $pdo = db\get_db();
-                $stmt = $pdo->prepare('SELECT * FROM links WHERE id = ?');
+                $stmt = $pdo->prepare('SELECT * FROM notes WHERE id = ?');
                 $stmt->execute([$id]);
-                $link = $stmt->fetch();
-                if ($link) {
-                    $newStatus = $link['active'] ? 0 : 1;
-                    db\toggle_link_status($id, $newStatus);
+                $note = $stmt->fetch();
+                if ($note) {
+                    $newStatus = $note['active'] ? 0 : 1;
+                    db\toggle_note_status($id, $newStatus);
                 }
-                header('Location: index.php?msg=updated');
+                header('Location: notes.php?msg=updated');
                 exit;
             }
         }
@@ -51,20 +51,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token'])) {
 
             if ($bulkAction === 'delete') {
                 foreach ($ids as $id)
-                    db\delete_link($id);
+                    db\delete_note($id);
             } elseif ($bulkAction === 'activate') {
                 foreach ($ids as $id)
-                    db\toggle_link_status($id, 1);
+                    db\toggle_note_status($id, 1);
             } elseif ($bulkAction === 'passivate') {
                 foreach ($ids as $id)
-                    db\toggle_link_status($id, 0);
+                    db\toggle_note_status($id, 0);
             }
-            header('Location: index.php?msg=bulk_updated');
+            header('Location: notes.php?msg=bulk_updated');
             exit;
         }
     } else {
         // CSRF verification failed
-        header('Location: index.php?msg=csrf_error');
+        header('Location: notes.php?msg=csrf_error');
         exit;
     }
 }
@@ -74,14 +74,14 @@ $search = $_GET['search'] ?? null;
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
 
-$allLinks = db\get_all_links($search);
-$totalLinks = count($allLinks);
-$totalPages = max(1, (int) ceil($totalLinks / $perPage));
+$allNotes = db\get_all_notes($search);
+$totalNotes = count($allNotes);
+$totalPages = max(1, (int) ceil($totalNotes / $perPage));
 $page = min($page, $totalPages);
 $offset = ($page - 1) * $perPage;
-$links = array_slice($allLinks, $offset, $perPage);
+$notes = array_slice($allNotes, $offset, $perPage);
 
-$stats = db\get_stats();
+$stats = db\get_note_stats();
 
 // Base URL for short links
 $config = db\get_config();
@@ -96,18 +96,16 @@ require_once __DIR__ . '/layout/header.php';
 ?>
 
 <div class="d-flex justify-between" style="margin-bottom: 20px;">
-    <h2>Link Listesi</h2>
-    <div class="d-flex">
-        <a href="new.php" class="btn btn-primary">+ Yeni Link Ekle</a>
-    </div>
+    <h2>Not Listesi</h2>
+    <a href="new_note.php" class="btn btn-primary">+ Yeni Not Ekle</a>
 </div>
 
 <form method="get" action="" class="card d-flex" style="padding: 1rem;">
-    <input type="text" name="search" placeholder="Slug veya URL ara..." value="<?php echo \App\e($search); ?>"
-        style="flex: 1;">
+    <input type="text" name="search" placeholder="Başlık, içerik veya slug ara..."
+        value="<?php echo \App\e($search); ?>" style="flex: 1;">
     <button type="submit" class="btn btn-primary">Ara</button>
     <?php if ($search): ?>
-        <a href="index.php" class="btn btn-outline">Temizle</a>
+        <a href="notes.php" class="btn btn-outline">Temizle</a>
     <?php endif; ?>
 </form>
 
@@ -134,27 +132,26 @@ require_once __DIR__ . '/layout/header.php';
                         <th style="width: 30px;"><input type="checkbox" id="selectAll"></th>
                         <th>ID</th>
                         <th>Kısa Link</th>
-                        <th>Hedef URL</th>
-                        <th>Not</th>
-                        <th>Tip</th>
-                        <th>Tık</th>
+                        <th>Başlık</th>
+                        <th>İçerik Özeti</th>
+                        <th>Görüntüleme</th>
                         <th>Tarih</th>
                         <th>Durum</th>
                         <th>İşlemler</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (!empty($links)): ?>
-                        <?php foreach ($links as $link): ?>
-                            <?php $shortUrl = $baseUrl . '/' . $link['slug']; ?>
+                    <?php if (!empty($notes)): ?>
+                        <?php foreach ($notes as $note): ?>
+                            <?php $shortUrl = $baseUrl . '/' . $note['slug']; ?>
                             <tr>
-                                <td><input type="checkbox" name="selected_ids[]" value="<?php echo \App\e($link['id']); ?>"
+                                <td><input type="checkbox" name="selected_ids[]" value="<?php echo \App\e($note['id']); ?>"
                                         class="row-checkbox"></td>
-                                <td><?php echo \App\e($link['id']); ?></td>
+                                <td><?php echo \App\e($note['id']); ?></td>
                                 <td>
                                     <div class="d-flex">
                                         <a href="<?php echo \App\e($shortUrl); ?>" target="_blank"
-                                            style="font-weight: 500; color: var(--primary-color);">/<?php echo \App\e($link['slug']); ?></a>
+                                            style="font-weight: 500; color: var(--primary-color);">/<?php echo \App\e($note['slug']); ?></a>
                                         <button type="button" class="btn btn-outline"
                                             style="padding: 2px 6px; font-size: 0.75rem;"
                                             onclick="copyUrl('<?php echo \App\e($shortUrl); ?>', this)">Kopyala</button>
@@ -163,20 +160,16 @@ require_once __DIR__ . '/layout/header.php';
                                             onclick="openQrModal('<?php echo \App\e($shortUrl); ?>')">QR</button>
                                     </div>
                                 </td>
-                                <td class="url-cell"
-                                    style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                                    title="<?php echo \App\e($link['target_url']); ?>">
-                                    <a href="<?php echo \App\e($link['target_url']); ?>" target="_blank" rel="noopener"
-                                        style="color: var(--text-color);"><?php echo \App\e($link['target_url']); ?></a>
+                                <td><?php echo $note['title'] ? \App\e($note['title']) : '<em class="text-muted">-</em>'; ?>
                                 </td>
-                                <td><?php echo \App\e($link['title'] ?? '-'); ?></td>
-                                <td><span class="badge"
-                                        style="background: var(--bg-color); color: var(--text-muted);"><?php echo \App\e($link['redirect_type']); ?></span>
+                                <td class="limit-cell" title="<?php echo \App\e($note['content']); ?>"
+                                    style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    <?php echo \App\e(mb_substr($note['content'], 0, 50) . (mb_strlen($note['content']) > 50 ? '...' : '')); ?>
                                 </td>
-                                <td><strong><?php echo \App\e($link['click_count']); ?></strong></td>
-                                <td><?php echo \App\e(substr($link['created_at'], 0, 10)); ?></td>
+                                <td><strong><?php echo \App\e($note['view_count']); ?></strong></td>
+                                <td><?php echo \App\e(substr($note['created_at'], 0, 10)); ?></td>
                                 <td>
-                                    <?php if (!empty($link['active'])): ?>
+                                    <?php if (!empty($note['active'])): ?>
                                         <span class="badge badge-success">Aktif</span>
                                     <?php else: ?>
                                         <span class="badge badge-danger">Pasif</span>
@@ -184,19 +177,19 @@ require_once __DIR__ . '/layout/header.php';
                                 </td>
                                 <td class="actions">
                                     <div class="d-flex">
-                                        <a href="stats.php?id=<?php echo \App\e($link['id']); ?>" class="btn btn-outline"
-                                            style="padding: 4px 8px; font-size: 12px;">Analiz</a>
-                                        <a href="edit.php?id=<?php echo \App\e($link['id']); ?>" class="btn btn-outline"
+                                        <a href="stats.php?type=note&id=<?php echo \App\e($note['id']); ?>"
+                                            class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;">Analiz</a>
+                                        <a href="edit_note.php?id=<?php echo \App\e($note['id']); ?>" class="btn btn-outline"
                                             style="padding: 4px 8px; font-size: 12px;">Düzenle</a>
 
                                         <!-- JS Actions via Single Form -->
                                         <button type="button" class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;"
-                                            onclick="submitAction('toggle', <?php echo \App\e($link['id']); ?>)">
-                                            <?php echo !empty($link['active']) ? 'Pasif' : 'Aktif'; ?>
+                                            onclick="submitAction('toggle', <?php echo \App\e($note['id']); ?>)">
+                                            <?php echo !empty($note['active']) ? 'Pasif' : 'Aktif'; ?>
                                         </button>
 
                                         <button type="button" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;"
-                                            onclick="confirmDelete(<?php echo \App\e($link['id']); ?>)">
+                                            onclick="confirmDelete(<?php echo \App\e($note['id']); ?>)">
                                             Sil
                                         </button>
                                     </div>
@@ -205,8 +198,8 @@ require_once __DIR__ . '/layout/header.php';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="10" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                                <?php echo $search ? 'Arama sonucu bulunamadı.' : 'Henüz link yok.'; ?>
+                            <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                <?php echo $search ? 'Arama sonucu bulunamadı.' : 'Henüz not yok.'; ?>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -253,14 +246,14 @@ require_once __DIR__ . '/layout/header.php';
         bulkForm.addEventListener('submit', function (e) {
             const bulkAction = this.elements['bulk_action'];
             if (!bulkAction || bulkAction.value === '') {
-                // Not showing alert to prevent blocking
+                // Removed alert
                 e.preventDefault();
                 return false;
             }
 
             var checkboxes = document.querySelectorAll('.row-checkbox:checked');
             if (checkboxes.length === 0) {
-                // Not showing alert to prevent blocking
+                // Removed alert
                 e.preventDefault();
                 return false;
             }
@@ -316,13 +309,13 @@ require_once __DIR__ . '/layout/header.php';
         <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">
             <?php echo \App\e($stats['count']); ?>
         </div>
-        <div class="text-muted">Toplam Link</div>
+        <div class="text-muted">Toplam Not</div>
     </div>
     <div class="card" style="text-align: center; margin-bottom: 0;">
         <div style="font-size: 2rem; font-weight: bold; color: var(--success-color);">
-            <?php echo \App\e($stats['clicks']); ?>
+            <?php echo \App\e($stats['views']); ?>
         </div>
-        <div class="text-muted">Toplam Tıklama</div>
+        <div class="text-muted">Toplam Görüntülenme</div>
     </div>
 </div>
 

@@ -5,6 +5,9 @@ RewriteRule ^app/ - [F,L]
 RewriteRule ^storage/ - [F,L]
 
 # Pretty URL yapılandırması
+# unlock.php için özel kural
+RewriteRule ^unlock/([A-Za-z0-9_-]+)/(link|note)/?$ unlock.php?slug=$1&type=$2 [L,QSA]
+
 # /go/slug veya doğrudan /slug adreslerini index.php'ye yönlendir
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

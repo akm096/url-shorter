@@ -16,10 +16,9 @@ auth\require_login();
 
 $error = '';
 $success = '';
-$target_url = '';
+$content = '';
 $slug = '';
 $title = '';
-$redirect_type = 302;
 $active = 1;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,16 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!\App\verify_csrf($token)) {
         $error = 'Geçersiz form isteği.';
     } else {
-        $target_url = trim($_POST['target_url'] ?? '');
+        $content = trim($_POST['content'] ?? '');
         $slug = trim($_POST['slug'] ?? '');
         $title = trim($_POST['title'] ?? '');
-        $redirect_type = (int) ($_POST['redirect_type'] ?? 302);
         $active = isset($_POST['active']) ? 1 : 0;
 
-        if (!\App\validate_url($target_url)) {
-            $error = 'Geçerli bir URL giriniz (http veya https ile başlamalı).';
-        } elseif (!\App\validate_url_length($target_url)) {
-            $error = 'URL çok uzun. Maksimum ' . \App\MAX_URL_LENGTH . ' karakter olabilir.';
+        if ($content === '') {
+            $error = 'İçerik boş bırakılamaz.';
         } else {
             if ($slug === '') {
                 $slug = \App\generate_random_slug(random_int(6, 8));
@@ -46,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Slug ' . \App\MIN_SLUG_LENGTH . '-' . \App\MAX_SLUG_LENGTH . ' karakter arasında olmalıdır.';
             } elseif (\App\is_reserved_slug($slug)) {
                 $error = 'Bu slug sistem tarafından ayrılmış.';
-            } elseif (db\get_link_by_slug($slug) !== null) {
+            } elseif (db\get_note_by_slug($slug) !== null) {
                 $error = 'Bu slug zaten kullanılıyor.';
             }
         }
@@ -54,37 +50,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$error) {
             // Security options
             $password = trim($_POST['password'] ?? '');
-            $expires_at = trim($_POST['expires_at'] ?? '');
-            $click_limit = trim($_POST['click_limit'] ?? '');
-
             $password_hash = $password !== '' ? password_hash($password, PASSWORD_DEFAULT) : null;
-            $expires_at_val = $expires_at !== '' ? $expires_at : null;
-            $click_limit_val = $click_limit !== '' ? (int) $click_limit : null;
 
             try {
-                db\insert_link([
+                db\insert_note([
                     'slug' => $slug,
-                    'target_url' => $target_url,
+                    'content' => $content,
                     'title' => $title,
-                    'redirect_type' => in_array($redirect_type, [301, 302]) ? $redirect_type : 302,
                     'created_at' => date('Y-m-d H:i:s'),
                     'active' => $active,
                     'password_hash' => $password_hash,
-                    'expires_at' => $expires_at_val,
-                    'click_limit' => $click_limit_val,
                 ]);
 
                 // Get base URL
                 $config = require __DIR__ . '/../app/config.php';
                 $baseUrl = rtrim($config['base_url'] ?? '', '/');
                 $createdUrl = $baseUrl ? ($baseUrl . '/' . $slug) : ('/' . $slug);
-                $createdSlug = $slug; // Save for QR display
 
-                $success = 'Link başarıyla oluşturuldu: <a href="' . \App\e($createdUrl) . '" target="_blank">' . \App\e($createdUrl) . '</a>';
-                $target_url = '';
+                $success = 'Not başarıyla oluşturuldu: <a href="' . \App\e($createdUrl) . '" target="_blank">' . \App\e($createdUrl) . '</a>';
+                $content = '';
                 $slug = '';
                 $title = '';
-                $redirect_type = 302;
                 $active = 1;
             } catch (\PDOException $e) {
                 if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate') !== false) {
@@ -102,14 +88,16 @@ require_once __DIR__ . '/layout/header.php';
 
 <div style="max-width: 800px; margin: 0 auto;">
     <div style="margin-bottom: 20px;">
-        <a href="index.php" class="btn btn-outline">← Geri Dön</a>
+        <a href="notes.php" class="btn btn-outline">← Geri Dön</a>
     </div>
 
     <div class="card">
-        <h2 style="margin-top:0;">Yeni Link Ekle</h2>
+        <h2 style="margin-top:0;">Yeni Not Ekle</h2>
 
         <?php if ($error): ?>
-            <div class="alert alert-danger"><?php echo \App\e($error); ?></div>
+            <div class="alert alert-danger">
+                <?php echo \App\e($error); ?>
+            </div>
         <?php endif; ?>
 
         <?php if ($success): ?>
@@ -137,38 +125,28 @@ require_once __DIR__ . '/layout/header.php';
             <?php echo \App\csrf_input(); ?>
 
             <div class="form-group">
-                <label for="target_url">Hedef URL <span class="text-muted">*</span></label>
-                <input type="text" name="target_url" id="target_url" required placeholder="https://ornek.com/sayfa"
-                    value="<?php echo \App\e($target_url); ?>">
+                <label for="title">Başlık <span class="text-muted">(İsteğe bağlı)</span></label>
+                <input type="text" name="title" id="title" placeholder="Not başlığı..."
+                    value="<?php echo \App\e($title); ?>">
             </div>
 
             <div class="form-group">
                 <label for="slug">Kısa Kod <span class="text-muted">(İsteğe bağlı)</span></label>
-                <input type="text" name="slug" id="slug" placeholder="ornek123" value="<?php echo \App\e($slug); ?>">
+                <input type="text" name="slug" id="slug" placeholder="ornek-not" value="<?php echo \App\e($slug); ?>">
                 <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Boş bırakılırsa rastgele
                     üretilir.</div>
             </div>
 
             <div class="form-group">
-                <label for="title">Not <span class="text-muted">(İsteğe bağlı)</span></label>
-                <input type="text" name="title" id="title" placeholder="Link hakkında kısa açıklama..."
-                    value="<?php echo \App\e($title); ?>">
-            </div>
-
-            <div class="form-group">
-                <label>Yönlendirme Tipi</label>
-                <select name="redirect_type">
-                    <option value="301" <?php echo $redirect_type == 301 ? 'selected' : ''; ?>>301 (Kalıcı - SEO uyumlu)
-                    </option>
-                    <option value="302" <?php echo $redirect_type == 302 ? 'selected' : ''; ?>>302 (Geçici - Varsayılan)
-                    </option>
-                </select>
+                <label for="content">İçerik <span class="text-muted">*</span></label>
+                <textarea name="content" id="content" required placeholder="Not içeriğinizi buraya yazın..."
+                    style="min-height: 200px;"><?php echo \App\e($content); ?></textarea>
             </div>
 
             <div class="form-group d-flex" style="margin-top: 20px;">
                 <input type="checkbox" name="active" id="active" value="1" <?php echo $active ? 'checked' : ''; ?>
                     style="width: auto; margin: 0;">
-                <label for="active" style="margin:0; font-weight: normal; cursor: pointer;">Link hemen aktif
+                <label for="active" style="margin:0; font-weight: normal; cursor: pointer;">Not hemen aktif
                     olsun</label>
             </div>
 
@@ -179,22 +157,13 @@ require_once __DIR__ . '/layout/header.php';
                     style="padding: 1rem; background: var(--bg-color); border-radius: var(--radius); margin-top: 0.5rem;">
                     <div class="form-group">
                         <label for="password">Şifre Koruması <span class="text-muted">(opsiyonel)</span></label>
-                        <input type="password" name="password" id="password" placeholder="Bağlantıyı şifrele...">
-                    </div>
-                    <div class="form-group">
-                        <label for="expires_at">Son Kullanma Tarihi <span class="text-muted">(opsiyonel)</span></label>
-                        <input type="datetime-local" name="expires_at" id="expires_at">
-                    </div>
-                    <div class="form-group">
-                        <label for="click_limit">Tıklama Limiti <span class="text-muted">(opsiyonel)</span></label>
-                        <input type="number" name="click_limit" id="click_limit" placeholder="Maksimum tıklama sayısı"
-                            min="1">
+                        <input type="password" name="password" id="password" placeholder="Notu şifrele...">
                     </div>
                 </div>
             </details>
 
             <div style="margin-top: 30px;">
-                <button type="submit" class="btn btn-primary">Link Oluştur</button>
+                <button type="submit" class="btn btn-primary">Not Oluştur</button>
             </div>
         </form>
     </div>

@@ -5,14 +5,18 @@ Basit, güvenli ve hızlı URL kısaltma servisi. PHP ile yazılmış, framework
 ## Özellikler
 
 - ✅ URL kısaltma (otomatik veya özel slug)
+- ✅ Not oluşturma (paylaşılabilir metinler)
 - ✅ 301/302 yönlendirme desteği
-- ✅ Tıklama sayacı
-- ✅ Admin paneli (parola korumalı)
-- ✅ CSRF koruması
-- ✅ Brute-force koruması (rate limiting)
-- ✅ Güvenlik başlıkları (X-Frame-Options, CSP, vb.)
+- ✅ Gelişmiş Analitik (Tarayıcı, İşletim Sistemi, Cihaz takibi ve Chart.js grafikleri)
+- ✅ QR Kod desteği (Her link ve not için otomatik oluşturma)
+- ✅ Şifre Korumalı İçerik (Link ve notlar için)
+- ✅ Süreli Linkler & Tıklama Limiti
+- ✅ Admin paneli (Karanlık Mod desteği ile)
+- ✅ Toplu İşlemler (Silme, Aktif/Pasif yapma - Hızlı Yönetim)
+- ✅ CSRF ve Brute-force koruması
 - ✅ MySQL ve SQLite desteği
 - ✅ InfinityFree uyumlu (shared hosting)
+- ✅ Modern JavaScript Entegrasyonu (Onay kutusuz, hızlı işlemler)
 
 ## Kurulum
 

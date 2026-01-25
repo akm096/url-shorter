@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /app/
+Disallow: /storage/
+Disallow: /.git/
+Disallow: /.htaccess
+Disallow: /README.md

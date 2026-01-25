@@ -7,5 +7,5 @@ require_once __DIR__ . '/../app/auth.php';
 \App\auth\logout();
 
 // Giriş sayfasına yönlendir
-header('Location: login.php');
+header('Location: /');
 exit;
