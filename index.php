@@ -97,6 +97,83 @@ if ($slug) {
         // Analitik verisini kaydet
         db\log_note_view((int) $note['id']);
 
+        // Burn After Read Logic
+        if ((int) ($note['is_burn_after_read'] ?? 0) === 1) {
+            // Check if user confirmed the burn
+            if (isset($_POST['confirm_burn']) && $_POST['confirm_burn'] === '1') {
+                // User confirmed: Deactivate the note (Soft Delete as requested)
+                db\toggle_note_status((int) $note['id'], 0);
+
+                // Continue to show the note this one last time
+                // Add a visual indicator
+                echo '<div style="background: #e74c3c; color: white; text-align: center; padding: 10px; font-weight: bold;">⚠️ Bu not imha edildi. Sayfayı yenilerseniz ulaşamazsınız.</div>';
+            } else {
+                // Show Warning Page
+                ?>
+                <!DOCTYPE html>
+                <html lang="tr">
+
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Kendini İmha Eden Not</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+                    <style>
+                        body {
+                            font-family: 'Inter', sans-serif;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            height: 100vh;
+                            background: #f8f9fa;
+                            margin: 0;
+                        }
+
+                        .card {
+                            background: white;
+                            padding: 2rem;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                            max-width: 400px;
+                            text-align: center;
+                        }
+
+                        .btn {
+                            background: #e74c3c;
+                            color: white;
+                            border: none;
+                            padding: 10px 20px;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 1rem;
+                            margin-top: 1rem;
+                        }
+
+                        .btn:hover {
+                            background: #c0392b;
+                        }
+                    </style>
+                </head>
+
+                <body>
+                    <div class="card">
+                        <h1 style="color: #e74c3c;">⚠️ Dikkat</h1>
+                        <p>Bu not <strong>"Görüldükten Sonra Sil"</strong> modunda paylaşılmıştır.</p>
+                        <p>Aşağıdaki butona tıkladığınızda not görüntülenecek ve ardından <strong>erişime kapatılacaktır (sunucuda pasif
+                                hale gelecektir).</strong></p>
+                        <form method="post">
+                            <input type="hidden" name="confirm_burn" value="1">
+                            <button type="submit" class="btn">Görüntüle ve Yok Et</button>
+                        </form>
+                    </div>
+                </body>
+
+                </html>
+                <?php
+                exit;
+            }
+        }
+
         // Not görüntüleme sayfası
         $noteTitle = $note['title'] ? \App\e($note['title']) : 'Not';
         $noteContent = \App\e($note['content']);
@@ -277,6 +354,7 @@ if ($slug) {
     $collection = db\get_collection_by_slug((string) $slug);
     if ($collection && (int) $collection['active'] === 1) {
         $colLinks = db\get_collection_links((int) $collection['id']);
+        $colNotes = db\get_collection_notes((int) $collection['id']);
         $themeColor = $collection['theme_color'] ?: '#ffffff';
 
         // Determine text color based on background (simple contrast check)
@@ -388,15 +466,34 @@ if ($slug) {
 
                 <div class="links">
                     <?php foreach ($colLinks as $link): ?>
-                        <?php 
+                        <?php
                         // Skip inactive links
-                        if ((int)$link['active'] !== 1) continue; 
-                        
+                        if ((int) $link['active'] !== 1)
+                            continue;
+
                         // Construct Short URL
                         $shortUrl = $baseUrl ? ($baseUrl . '/' . $link['slug']) : ('/' . $link['slug']);
                         ?>
                         <a href="<?php echo \App\e($shortUrl); ?>" target="_blank" class="link-btn">
                             <?php echo \App\e($link['title'] ?: $link['target_url']); ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="notes" style="margin-top: 2rem;">
+                    <?php foreach ($colNotes as $note): ?>
+                        <?php
+                        // Skip inactive notes
+                        if ((int) $note['active'] !== 1)
+                            continue;
+
+                        // Construct Slug
+                        $noteUrl = $baseUrl ? ($baseUrl . '/' . $note['slug']) : ('/' . $note['slug']);
+                        ?>
+                        <a href="<?php echo \App\e($noteUrl); ?>" target="_blank" class="link-btn"
+                            style="border-style: dashed; background-color: transparent; color: <?php echo $textColor; ?>; border-color: <?php echo $textColor; ?>;">
+                            <span style="font-size: 1.2em; display: inline-block; margin-right: 5px;">📝</span>
+                            <?php echo \App\e($note['title'] ?: 'Not Görüntüle'); ?>
                         </a>
                     <?php endforeach; ?>
                 </div>
@@ -543,6 +640,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Security options
                     $password = trim((string) ($_POST['note_password'] ?? ''));
                     $password_hash = $password !== '' ? password_hash($password, PASSWORD_DEFAULT) : null;
+                    $is_burn = isset($_POST['is_burn_after_read']) ? 1 : 0;
 
                     // DB Insert Note
                     try {
@@ -553,6 +651,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'created_at' => date('Y-m-d H:i:s'),
                             'active' => 1,
                             'password_hash' => $password_hash,
+                            'is_burn_after_read' => $is_burn,
                         ]);
                         $createdUrl = $baseUrl ? ($baseUrl . '/' . $custom_slug) : ('/' . $custom_slug);
                         // PRG: Store in session and redirect
@@ -779,6 +878,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label for="note_title">Başlık <span class="text-muted">(opsiyonel)</span></label>
                         <input type="text" name="note_title" id="note_title" placeholder="Not Başlığı"
                             value="<?php echo \App\e($note_title); ?>">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="d-flex align-items-center" style="cursor: pointer; gap: 8px;">
+                            <input type="checkbox" name="is_burn_after_read" value="1"
+                                style="width: auto; height: auto;">
+                            <span>🔥 Görüldükten sonra sil (Burn After Read)</span>
+                        </label>
+                        <small class="text-muted" style="display: block; margin-top: 4px;">Aktif edilirse, not bir kez
+                            görüntülendikten sonra erişime kapatılır (pasif olur).</small>
                     </div>
 
                     <div class="form-group">

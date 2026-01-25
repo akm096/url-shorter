@@ -63,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'created_at' => date('Y-m-d H:i:s'),
                     'active' => $active,
                     'password_hash' => $password_hash,
+                    'is_burn_after_read' => isset($_POST['is_burn_after_read']) ? 1 : 0,
                 ]);
 
                 logger\log_system_action('CREATE_NOTE', "Slug: $slug | Title: $title");
@@ -141,6 +142,13 @@ require_once __DIR__ . '/layout/header.php';
                 <input type="text" name="slug" id="slug" placeholder="ornek-not" value="<?php echo \App\e($slug); ?>">
                 <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Boş bırakılırsa rastgele
                     üretilir.</div>
+            </div>
+
+            <div class="form-group d-flex" style="margin-bottom: 20px;">
+                <input type="checkbox" name="is_burn_after_read" id="is_burn_after_read" value="1"
+                    style="width: auto; margin: 0;">
+                <label for="is_burn_after_read" style="margin:0; font-weight: normal; cursor: pointer;">🔥 Görüldükten
+                    sonra sil (Burn After Read)</label>
             </div>
 
             <div class="form-group">

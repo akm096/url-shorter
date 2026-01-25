@@ -25,7 +25,8 @@
 ### 🛠 Araçlar & Diğer
 - [x] **Toplu İçe/Dışa Aktarma:** Excel veya CSV dosyasından toplu link oluşturma ve yedekleme.
 - [x] **Link Koleksiyonları:** Birden fazla linki tek bir sayfada toplama (Linktree tarzı).
-- [ ] **Kendini İmha Eden Notlar:** Görüldükten sonra otomatik silinen içerikler.
+- [x] **Kendini İmha Eden Notlar:** Görüldükten sonra otomatik silinen/pasifleşen içerikler (Burn After Read).
+- [x] **Karma Koleksiyonlar:** Koleksiyonlara hem link hem de not ekleme desteği.
 
 ### 🧹 Bakım & Güvenlik
 - [ ] Spam/Zararlı Link Koruması (Google Safe Browsing Entegrasyonu).

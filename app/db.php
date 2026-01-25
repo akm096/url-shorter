@@ -163,6 +163,18 @@ function initialize_database(PDO $pdo, string $driver): void
                 FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
             )'
         );
+
+        // Collection Notes (SQLite)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS collection_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                collection_id INTEGER NOT NULL,
+                note_id INTEGER NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+                FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+            )'
+        );
     } elseif ($driver === 'mysql') {
         // MySQL için tablo oluşturma
         $pdo->exec(
@@ -219,12 +231,17 @@ function initialize_database(PDO $pdo, string $driver): void
                 view_count INT UNSIGNED NOT NULL DEFAULT 0,
                 created_at DATETIME NOT NULL,
                 active TINYINT(1) NOT NULL DEFAULT 1,
-                password_hash VARCHAR(255) DEFAULT NULL
+                password_hash VARCHAR(255) DEFAULT NULL,
+                is_burn_after_read TINYINT(1) NOT NULL DEFAULT 0
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
         // Migration for notes
         try {
             $pdo->exec('ALTER TABLE notes ADD COLUMN password_hash VARCHAR(255) DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE notes ADD COLUMN is_burn_after_read TINYINT(1) NOT NULL DEFAULT 0');
         } catch (\Exception $e) {
         }
 
@@ -295,6 +312,18 @@ function initialize_database(PDO $pdo, string $driver): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 
+        // Collection Notes (MySQL)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS collection_notes (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                collection_id INT UNSIGNED NOT NULL,
+                note_id INT UNSIGNED NOT NULL,
+                sort_order INT NOT NULL DEFAULT 0,
+                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+                FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+
         // Migration for stats (MySQL)
         try {
             $pdo->exec('ALTER TABLE link_stats ADD COLUMN country_code VARCHAR(2) DEFAULT NULL');
@@ -317,12 +346,17 @@ function initialize_database(PDO $pdo, string $driver): void
                 view_count INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 active INTEGER NOT NULL DEFAULT 1,
-                password_hash TEXT DEFAULT NULL
+                password_hash TEXT DEFAULT NULL,
+                is_burn_after_read INTEGER NOT NULL DEFAULT 0
             )'
         );
         // Migration for notes
         try {
             $pdo->exec('ALTER TABLE notes ADD COLUMN password_hash TEXT DEFAULT NULL');
+        } catch (\Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE notes ADD COLUMN is_burn_after_read INTEGER NOT NULL DEFAULT 0');
         } catch (\Exception $e) {
         }
 
@@ -574,8 +608,8 @@ function insert_note(array $data): int
 {
     $pdo = get_db();
     $stmt = $pdo->prepare(
-        'INSERT INTO notes (slug, content, title, view_count, created_at, active, password_hash)
-         VALUES (:slug, :content, :title, 0, :created_at, :active, :password_hash)'
+        'INSERT INTO notes (slug, content, title, view_count, created_at, active, password_hash, is_burn_after_read)
+         VALUES (:slug, :content, :title, 0, :created_at, :active, :password_hash, :is_burn_after_read)'
     );
     $stmt->execute([
         ':slug' => $data['slug'],
@@ -584,6 +618,7 @@ function insert_note(array $data): int
         ':created_at' => $data['created_at'],
         ':active' => $data['active'] ?? 1,
         ':password_hash' => $data['password_hash'] ?? null,
+        ':is_burn_after_read' => $data['is_burn_after_read'] ?? 0,
     ]);
     return (int) $pdo->lastInsertId();
 }
@@ -627,7 +662,7 @@ function update_note(int $id, array $data): void
 {
     $pdo = get_db();
     $stmt = $pdo->prepare(
-        'UPDATE notes SET slug = :slug, content = :content, title = :title, active = :active, password_hash = :password_hash
+        'UPDATE notes SET slug = :slug, content = :content, title = :title, active = :active, password_hash = :password_hash, is_burn_after_read = :is_burn_after_read
          WHERE id = :id'
     );
     $stmt->execute([
@@ -636,6 +671,7 @@ function update_note(int $id, array $data): void
         ':title' => $data['title'] ?? null,
         ':active' => $data['active'],
         ':password_hash' => $data['password_hash'] ?? null,
+        ':is_burn_after_read' => $data['is_burn_after_read'] ?? 0,
         ':id' => $id,
     ]);
 }
@@ -1091,4 +1127,55 @@ function get_collection_links(int $collectionId): array
     );
     $stmt->execute([$collectionId]);
     return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+/**
+ * Koleksiyondaki notları getirir.
+ * @param int $collectionId
+ * @return array
+ */
+function get_collection_notes(int $collectionId): array
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'SELECT n.id, n.slug, n.title, n.content, n.active, cn.sort_order, cn.id as junction_id
+         FROM notes n 
+         JOIN collection_notes cn ON n.id = cn.note_id 
+         WHERE cn.collection_id = ? 
+         ORDER BY cn.sort_order ASC, cn.id ASC'
+    );
+    $stmt->execute([$collectionId]);
+    return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+/**
+ * Koleksiyona not ekler.
+ * @param int $collectionId
+ * @param int $noteId
+ * @return void
+ */
+function add_note_to_collection(int $collectionId, int $noteId): void
+{
+    $pdo = get_db();
+    // Check if exists
+    $stmt = $pdo->prepare('SELECT id FROM collection_notes WHERE collection_id = ? AND note_id = ?');
+    $stmt->execute([$collectionId, $noteId]);
+    if ($stmt->fetch())
+        return; // Already exists
+
+    $pdo->prepare('INSERT INTO collection_notes (collection_id, note_id) VALUES (?, ?)')
+        ->execute([$collectionId, $noteId]);
+}
+
+/**
+ * Koleksiyondan not çıkarır.
+ * @param int $collectionId
+ * @param int $noteId
+ * @return void
+ */
+function remove_note_from_collection(int $collectionId, int $noteId): void
+{
+    $pdo = get_db();
+    $pdo->prepare('DELETE FROM collection_notes WHERE collection_id = ? AND note_id = ?')
+        ->execute([$collectionId, $noteId]);
 }

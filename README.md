@@ -20,6 +20,9 @@ Basit, güvenli ve hızlı URL kısaltma servisi. PHP ile yazılmış, framework
 - ✅ MySQL ve SQLite desteği
 - ✅ InfinityFree uyumlu (shared hosting)
 - ✅ Modern JavaScript Entegrasyonu (Onay kutusuz, hızlı işlemler)
+- ✅ Kendini İmha Eden Notlar (Burn After Read)
+- ✅ Karma Koleksiyonlar (Link + Not Bir Arada)
+- ✅ Gelişmiş Bio Pages (Bio sayfalarında not gösterimi)
 
 ## Kurulum
 

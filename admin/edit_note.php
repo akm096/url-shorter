@@ -65,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$error) {
             // Security options
             $password = trim($_POST['password'] ?? '');
+            $is_burn_after_read = isset($_POST['is_burn_after_read']) ? 1 : 0;
 
             // Only update password if a new one is provided
             $password_hash = $note['password_hash'] ?? null;
@@ -83,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'title' => $title,
                     'active' => $active,
                     'password_hash' => $password_hash,
+                    'is_burn_after_read' => $is_burn_after_read,
                 ]);
 
                 logger\log_system_action('UPDATE_NOTE', "Note ID: $id | Slug: $slug");
@@ -157,6 +159,11 @@ require_once __DIR__ . '/layout/header.php';
                 <label for="active" style="margin:0; font-weight: normal; cursor: pointer;">Bu not aktif olsun</label>
             </div>
 
+            <div class="form-group d-flex" style="margin-top: 20px;">
+                <input type="checkbox" name="is_burn_after_read" id="is_burn_after_read" value="1" <?php echo ($note['is_burn_after_read'] ?? 0) ? 'checked' : ''; ?> style="width: auto; margin: 0;">
+                <label for="is_burn_after_read" style="margin:0; font-weight: normal; cursor: pointer;">🔥 Görüldükten sonra sil (Burn After Read)</label>
+            </div>
+
             <details style="margin-top: 20px;">
                 <summary style="cursor: pointer; color: var(--primary-color); font-weight: 500;">🔒 Güvenlik Seçenekleri
                 </summary>
@@ -166,32 +173,32 @@ require_once __DIR__ . '/layout/header.php';
                         <label for="password">Yeni Şifre <span class="text-muted">(boş bırakırsan mevcut şifre
                                 kalır)</span></label>
                         <input type="password" name="password" id="password" placeholder="Yeni şifre belirle...">
-                        <?php if (!empty($note['password_hash'])): ?>
-                            <div class="d-flex" style="margin-top: 5px;">
-                                <input type="checkbox" name="clear_password" value="1" id="clear_password"
-                                    style="width: auto; margin: 0;">
-                                <label for="clear_password"
-                                    style="margin: 0; font-weight: normal; cursor: pointer; font-size: 0.85rem;">Şifreyi
-                                    kaldır</label>
-                            </div>
-                        <?php endif; ?>
-                    </div>
+            <?php if (!empty($note['password_hash'])): ?>
+                <div class="d-flex" style="margin-top: 5px;">
+                    <input type="checkbox" name="clear_password" value="1" id="clear_password"
+                        style="width: auto; margin: 0;">
+                    <label for="clear_password"
+                        style="margin: 0; font-weight: normal; cursor: pointer; font-size: 0.85rem;">Şifreyi
+                        kaldır</label>
                 </div>
-            </details>
-
-            <div style="margin-top: 30px;">
-                <button type="submit" class="btn btn-primary">Değişiklikleri Kaydet</button>
-            </div>
-        </form>
-
-        <div
-            style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-muted);">
-            <div><strong>ID:</strong> <?php echo \App\e($note['id']); ?></div>
-            <div style="margin-top:5px;"><strong>Görüntülenme:</strong> <?php echo \App\e($note['view_count']); ?></div>
-            <div style="margin-top:5px;"><strong>Oluşturulma Tarihi:</strong> <?php echo \App\e($note['created_at']); ?>
-            </div>
-        </div>
+            <?php endif; ?>
     </div>
+</div>
+</details>
+
+<div style="margin-top: 30px;">
+    <button type="submit" class="btn btn-primary">Değişiklikleri Kaydet</button>
+</div>
+</form>
+
+<div
+    style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-muted);">
+    <div><strong>ID:</strong> <?php echo \App\e($note['id']); ?></div>
+    <div style="margin-top:5px;"><strong>Görüntülenme:</strong> <?php echo \App\e($note['view_count']); ?></div>
+    <div style="margin-top:5px;"><strong>Oluşturulma Tarihi:</strong> <?php echo \App\e($note['created_at']); ?>
+    </div>
+</div>
+</div>
 </div>
 
 <?php require_once __DIR__ . '/layout/footer.php'; ?>
