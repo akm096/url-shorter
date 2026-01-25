@@ -13,23 +13,23 @@
 
 ## 📋 Yol Haritası (Gelecek Planlar)
 
-### 🧹 Bakım & Güvenlik
-- [ ] Spam/Zararlı Link Koruması (Google Safe Browsing Entegrasyonu).
-- [ ] Rate Limiting (Kullanıcı bazlı tıklama/oluşturma sınırı).
-
 ### 🎨 Kullanıcı Deneyimi (UX)
-- [ ] **QR Kod Özelleştirme:** Renk, logo ve boyut seçenekleri.
-- [ ] **Markdown Editör:** Notlar için zengin metin desteği.
+- [x] **QR Kod Özelleştirme:** Renk, logo ve boyut seçenekleri.
+- [x] **Markdown Editör:** Notlar için zengin metin desteği.
 - [x] ~~**Open Graph Önizleme:**~~ (Iptal edildi).
 
 ### 📊 Gelişmiş Analiz
-- [ ] **Etkileşim Haritası:** Ülke istatistiklerinin dünya haritası üzerinde gösterimi.
-- [ ] **E-posta Raporları:** Haftalık/Aylık istatistik özetleri.
+- [x] **Etkileşim Haritası:** Ülke istatistiklerinin dünya haritası üzerinde gösterimi.
+- [x] ~~**E-posta Raporları:**~~ (İptal edildi).
 
 ### 🛠 Araçlar & Diğer
-- [ ] **Toplu İçe Aktarma:** Excel veya CSV dosyasından toplu link oluşturma.
-- [ ] **Link Koleksiyonları:** Birden fazla linki tek bir sayfada toplama (Linktree tarzı).
+- [x] **Toplu İçe/Dışa Aktarma:** Excel veya CSV dosyasından toplu link oluşturma ve yedekleme.
+- [/] **Link Koleksiyonları:** Birden fazla linki tek bir sayfada toplama (Linktree tarzı).
 - [ ] **Kendini İmha Eden Notlar:** Görüldükten sonra otomatik silinen içerikler.
+
+### 🧹 Bakım & Güvenlik
+- [ ] Spam/Zararlı Link Koruması (Google Safe Browsing Entegrasyonu).
+- [ ] Rate Limiting (Kullanıcı bazlı tıklama/oluşturma sınırı).
 
 ## 🛠️ Mevcut Teknik Durum
 - **Dil:** PHP 7.4+ (Framework-suz, Saf PHP)

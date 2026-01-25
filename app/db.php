@@ -138,6 +138,31 @@ function initialize_database(PDO $pdo, string $driver): void
                 created_at TEXT NOT NULL
             )'
         );
+
+        // Collections (SQLite)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS collections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                slug TEXT NOT NULL UNIQUE,
+                title TEXT,
+                description TEXT,
+                theme_color TEXT DEFAULT "#ffffff",
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL
+            )'
+        );
+
+        // Collection Links (SQLite)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS collection_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                collection_id INTEGER NOT NULL,
+                link_id INTEGER NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+                FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
+            )'
+        );
     } elseif ($driver === 'mysql') {
         // MySQL için tablo oluşturma
         $pdo->exec(
@@ -242,6 +267,31 @@ function initialize_database(PDO $pdo, string $driver): void
                 details TEXT DEFAULT NULL,
                 ip_address VARCHAR(45) DEFAULT NULL,
                 created_at DATETIME NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+
+        // Collections (MySQL)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS collections (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                slug VARCHAR(191) NOT NULL UNIQUE,
+                title TEXT DEFAULT NULL,
+                description TEXT DEFAULT NULL,
+                theme_color VARCHAR(7) DEFAULT "#ffffff",
+                active TINYINT(1) NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+
+        // Collection Links (MySQL)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS collection_links (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                collection_id INT UNSIGNED NOT NULL,
+                link_id INT UNSIGNED NOT NULL,
+                sort_order INT NOT NULL DEFAULT 0,
+                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+                FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 
@@ -422,24 +472,57 @@ function delete_link(int $id): void
 
 /**
  * Tüm linkleri getirir. Opsiyonel arama parametresi ile slug veya URL'de filtreleme yapar.
+ * Sayfalama için limit ve offset eklendi.
+ * 
  * @param string|null $search
+ * @param int $limit
+ * @param int $offset
  * @return array
  */
-function get_all_links(?string $search = null): array
+function get_all_links(?string $search = null, int $limit = 20, int $offset = 0): array
 {
     $pdo = get_db();
+    $sql = 'SELECT * FROM links';
+    $params = [];
 
     if ($search !== null && trim($search) !== '') {
+        $sql .= ' WHERE slug LIKE ? OR target_url LIKE ?';
         $like = '%' . trim($search) . '%';
-        $stmt = $pdo->prepare(
-            'SELECT * FROM links WHERE slug LIKE ? OR target_url LIKE ? ORDER BY id DESC'
-        );
-        $stmt->execute([$like, $like]);
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $params[] = $like;
+        $params[] = $like;
     }
 
-    $stmt = $pdo->query('SELECT * FROM links ORDER BY id DESC');
+    $sql .= ' ORDER BY id DESC LIMIT ? OFFSET ?';
+    $params[] = $limit;
+    $params[] = $offset;
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+/**
+ * Toplam link sayısını getirir (Arama filtresi ile uyumlu).
+ * 
+ * @param string|null $search
+ * @return int
+ */
+function get_links_count(?string $search = null): int
+{
+    $pdo = get_db();
+    $sql = 'SELECT COUNT(*) as count FROM links';
+    $params = [];
+
+    if ($search !== null && trim($search) !== '') {
+        $sql .= ' WHERE slug LIKE ? OR target_url LIKE ?';
+        $like = '%' . trim($search) . '%';
+        $params[] = $like;
+        $params[] = $like;
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return (int) $stmt->fetchColumn();
 }
 
 /**
@@ -719,7 +802,14 @@ function get_daily_click_stats(int $days = 7, ?int $linkId = null): array
  * @param int|null $linkId
  * @return array
  */
-function get_distribution_stats(string $type, ?int $linkId = null): array
+/**
+ * Tarayıcı, İşletim Sistemi gibi dağılımları getirir.
+ * @param string $type browser|os|device_type
+ * @param int|null $linkId
+ * @param int $limit
+ * @return array
+ */
+function get_distribution_stats(string $type, ?int $linkId = null, int $limit = 10): array
 {
     $validTypes = ['browser', 'os', 'device_type', 'referer', 'country_code'];
     if (!in_array($type, $validTypes))
@@ -732,7 +822,9 @@ function get_distribution_stats(string $type, ?int $linkId = null): array
         $whereSql = "WHERE link_id = " . (int) $linkId;
     }
 
-    $stmt = $pdo->query("SELECT $type as name, COUNT(*) as count FROM link_stats $whereSql GROUP BY $type ORDER BY count DESC LIMIT 10");
+    $limitSql = ($limit > 0) ? "LIMIT " . (int) $limit : "";
+
+    $stmt = $pdo->query("SELECT $type as name, COUNT(*) as count FROM link_stats $whereSql GROUP BY $type ORDER BY count DESC $limitSql");
     return $stmt->fetchAll(\PDO::FETCH_ASSOC);
 }
 
@@ -843,7 +935,14 @@ function get_daily_note_view_stats(int $days = 7, ?int $noteId = null): array
  * @param int|null $noteId
  * @return array
  */
-function get_note_distribution_stats(string $type, ?int $noteId = null): array
+/**
+ * Notlar için dağılım istatistikleri.
+ * @param string $type
+ * @param int|null $noteId
+ * @param int $limit
+ * @return array
+ */
+function get_note_distribution_stats(string $type, ?int $noteId = null, int $limit = 10): array
 {
     $validTypes = ['browser', 'os', 'device_type', 'referer', 'country_code'];
     if (!in_array($type, $validTypes))
@@ -856,6 +955,8 @@ function get_note_distribution_stats(string $type, ?int $noteId = null): array
         $whereSql = "WHERE note_id = " . (int) $noteId;
     }
 
-    $stmt = $pdo->query("SELECT $type as name, COUNT(*) as count FROM note_stats $whereSql GROUP BY $type ORDER BY count DESC LIMIT 10");
+    $limitSql = ($limit > 0) ? "LIMIT " . (int) $limit : "";
+
+    $stmt = $pdo->query("SELECT $type as name, COUNT(*) as count FROM note_stats $whereSql GROUP BY $type ORDER BY count DESC $limitSql");
     return $stmt->fetchAll(\PDO::FETCH_ASSOC);
 }

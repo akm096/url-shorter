@@ -165,7 +165,7 @@ function get_ip_country(string $ip): ?string
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 1);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
             $response = curl_exec($ch);
             $error = curl_error($ch);
@@ -187,7 +187,7 @@ function get_ip_country(string $ip): ?string
         try {
             $context = stream_context_create([
                 'http' => [
-                    'timeout' => 2,
+                    'timeout' => 1,
                     'ignore_errors' => true
                 ]
             ]);

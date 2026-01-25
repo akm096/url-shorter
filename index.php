@@ -113,7 +113,14 @@ if ($slug) {
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-            <link rel="stylesheet" href="assets/css/admin.css?v=<?php echo time(); ?>">
+            <?php
+            $cssPath = __DIR__ . '/assets/css/admin.css';
+            $cssVer = file_exists($cssPath) ? filemtime($cssPath) : '1.0';
+            ?>
+            <link rel="stylesheet" href="assets/css/admin.css?v=<?php echo $cssVer; ?>">
+            <!-- Markdown Parser & Sanitizer -->
+            <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
             <script>
                 // Init Dark Mode
                 (function () {
@@ -124,6 +131,90 @@ if ($slug) {
                     }
                 })();
             </script>
+            <style>
+                /* Markdown Content Base Styles */
+                .markdown-body {
+                    line-height: 1.6;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                }
+
+                .markdown-body h1,
+                .markdown-body h2,
+                .markdown-body h3 {
+                    margin-top: 24px;
+                    margin-bottom: 16px;
+                    font-weight: 600;
+                    line-height: 1.25;
+                }
+
+                .markdown-body h1 {
+                    font-size: 2em;
+                    border-bottom: 1px solid var(--border-color);
+                    padding-bottom: .3em;
+                }
+
+                .markdown-body h2 {
+                    font-size: 1.5em;
+                    border-bottom: 1px solid var(--border-color);
+                    padding-bottom: .3em;
+                }
+
+                .markdown-body p {
+                    margin-top: 0;
+                    margin-bottom: 16px;
+                }
+
+                .markdown-body code {
+                    background-color: rgba(175, 184, 193, 0.2);
+                    padding: .2em .4em;
+                    border-radius: 6px;
+                    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+                }
+
+                .markdown-body pre {
+                    background-color: var(--bg-color-alt, #f6f8fa);
+                    padding: 16px;
+                    overflow: auto;
+                    border-radius: 6px;
+                }
+
+                .markdown-body pre code {
+                    background-color: transparent;
+                    padding: 0;
+                }
+
+                .markdown-body blockquote {
+                    padding: 0 1em;
+                    color: var(--text-muted);
+                    border-left: .25em solid var(--border-color);
+                    margin: 0 0 16px 0;
+                }
+
+                .markdown-body ul,
+                .markdown-body ol {
+                    padding-left: 2em;
+                    margin-bottom: 16px;
+                }
+
+                .markdown-body img {
+                    max-width: 100%;
+                    box-sizing: content-box;
+                    background-color: #fff;
+                }
+
+                .markdown-body a {
+                    color: var(--primary-color);
+                    text-decoration: none;
+                }
+
+                .markdown-body a:hover {
+                    text-decoration: underline;
+                }
+
+                .dark-mode .markdown-body pre {
+                    background-color: #161b22;
+                }
+            </style>
         </head>
 
         <body>
@@ -142,13 +233,22 @@ if ($slug) {
                         style="font-size: 0.85rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
                         Oluşturulma: <?php echo $noteDate; ?> | Görüntülenme: <?php echo $note['view_count']; ?>
                     </div>
-                    <div
-                        style="white-space: pre-wrap; line-height: 1.6; font-family: monospace; background: var(--bg-color); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border-color);">
-                        <?php echo $noteContent; ?>
-                    </div>
+                    <!-- Raw content hidden, will be rendered via JS -->
+                    <div id="raw-content" style="display:none;"><?php echo $noteContent; ?></div>
+                    <div id="render-content" class="markdown-body" style="padding: 1rem;"></div>
                 </div>
             </div>
             <script>
+                // Markdown Rendering Logic
+                document.addEventListener('DOMContentLoaded', () => {
+                    const rawContent = document.getElementById('raw-content').textContent;
+                    const renderContainer = document.getElementById('render-content');
+
+                    // Parse and Sanitize
+                    const cleanHtml = DOMPurify.sanitize(marked.parse(rawContent));
+                    renderContainer.innerHTML = cleanHtml;
+                });
+
                 // Dark Mode Logic
                 const toggleBtn = document.getElementById('themeToggle');
                 const html = document.documentElement;
@@ -347,6 +447,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/admin.css?v=<?php echo time(); ?>">
     <script src="assets/js/qrcode.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
     <style>
         .nav-tabs {
             display: flex;
@@ -522,28 +624,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </details>
 
-                    <details style="margin-bottom: 1rem;">
-                        <summary
-                            style="cursor: pointer; color: var(--primary-color); font-weight: 500; margin-bottom: 0.5rem;">
-                            🌐 Sosyal Medya Önizleme</summary>
-                        <div
-                            style="padding: 1rem; background: var(--bg-color); border-radius: var(--radius); margin-top: 0.5rem;">
-                            <div class="form-group">
-                                <label for="og_title">Özel Başlık</label>
-                                <input type="text" name="og_title" id="og_title" placeholder="Paylaşım başlığı...">
-                            </div>
-                            <div class="form-group">
-                                <label for="og_description">Özel Açıklama</label>
-                                <textarea name="og_description" id="og_description" placeholder="Paylaşım açıklaması..."
-                                    style="min-height: 80px;"></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label for="og_image">Özel Resim URL</label>
-                                <input type="text" name="og_image" id="og_image"
-                                    placeholder="https://site.com/resim.jpg">
-                            </div>
-                        </div>
-                    </details>
+                    <!-- OG Ayarları Kaldırıldı -->
 
                     <button type="submit" class="btn btn-primary" style="width: 100%;">Kısalt</button>
                 </form>
@@ -565,6 +646,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label for="note_content">Not İçeriği <span class="text-muted">*</span></label>
                         <textarea name="note_content" id="note_content" placeholder="Buraya notunuzu yazın..."
                             style="min-height: 150px;"><?php echo \App\e($note_content); ?></textarea>
+                        <script>
+                            document.addEventListener("DOMContentLoaded", function () {
+                                if (typeof EasyMDE !== 'undefined') {
+                                    new EasyMDE({
+                                        element: document.getElementById('note_content'),
+                                        spellChecker: false,
+                                        status: false,
+                                        placeholder: "Notunuzu buraya yazın (Markdown desteklenir)...",
+                                        minHeight: "150px"
+                                    });
+                                }
+                            });
+                        </script>
                     </div>
 
                     <div class="form-group">

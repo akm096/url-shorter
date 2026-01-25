@@ -53,7 +53,7 @@ if ($type === 'note') {
     $browserStats = db\get_note_distribution_stats('browser', $id);
     $osStats = db\get_note_distribution_stats('os', $id);
     $deviceStats = db\get_note_distribution_stats('device_type', $id);
-    $countryStats = db\get_note_distribution_stats('country_code', $id);
+    $countryStats = db\get_note_distribution_stats('country_code', $id, 0); // Limit 0 for Map
     $refererStats = db\get_note_distribution_stats('referer', $id);
 
 } else {
@@ -74,7 +74,7 @@ if ($type === 'note') {
     $browserStats = db\get_distribution_stats('browser', $id);
     $osStats = db\get_distribution_stats('os', $id);
     $deviceStats = db\get_distribution_stats('device_type', $id);
-    $countryStats = db\get_distribution_stats('country_code', $id);
+    $countryStats = db\get_distribution_stats('country_code', $id, 0); // Limit 0 for Map
     $refererStats = db\get_distribution_stats('referer', $id);
 }
 
@@ -84,6 +84,10 @@ $clicks = array_column($dailyStats, 'count');
 $totalClicks = array_sum($clicks);
 
 require_once __DIR__ . '/layout/header.php';
+
+// Prepare country data for Grid (Top 10)
+$countryStatsTop10 = array_slice($countryStats, 0, 10);
+
 ?>
 
 <div class="d-flex justify-between" style="margin-bottom: 20px; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -112,6 +116,12 @@ require_once __DIR__ . '/layout/header.php';
         <div style="position: relative; height: 350px; width: 100%;">
             <canvas id="clicksChart"></canvas>
         </div>
+    </div>
+
+    <!-- World Map Container -->
+    <div class="card" style="grid-column: span 12;">
+        <h3>Etkileşim Haritası</h3>
+        <div id="world-map" style="width: 100%; height: 400px;"></div>
     </div>
 
     <!-- Referer Chart (Half Width on Desktop) -->
@@ -159,6 +169,9 @@ require_once __DIR__ . '/layout/header.php';
 
 </div>
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap/dist/css/jsvectormap.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/jsvectormap/dist/js/jsvectormap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsvectormap/dist/maps/world.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -225,8 +238,12 @@ require_once __DIR__ . '/layout/header.php';
         const deviceLabels = <?php echo json_encode(array_column($deviceStats, 'name')); ?>;
         const deviceData = <?php echo json_encode(array_column($deviceStats, 'count')); ?>;
 
-        const countryLabels = <?php echo json_encode(array_column($countryStats, 'name')); ?>;
-        const countryData = <?php echo json_encode(array_column($countryStats, 'count')); ?>;
+        // Use Top 10 for Charts
+        const countryLabels = <?php echo json_encode(array_column($countryStatsTop10, 'name')); ?>;
+        const countryData = <?php echo json_encode(array_column($countryStatsTop10, 'count')); ?>;
+
+        // Full data for Map
+        const fullCountryData = <?php echo json_encode($countryStats); ?>;
 
         const refererLabels = <?php echo json_encode(array_column($refererStats, 'name')); ?>;
         const refererData = <?php echo json_encode(array_column($refererStats, 'count')); ?>;
@@ -382,6 +399,73 @@ require_once __DIR__ . '/layout/header.php';
             },
             options: doughnutConfig
         });
+
+
+    // 4. World Map
+    // Convert array [{name: "US", count: 5}, ...] to object { "US": 5, ... }
+    const mapData = {};
+    fullCountryData.forEach(item => {
+        if (item.name) {
+            mapData[item.name.toUpperCase()] = item.count;
+        }
+    });
+
+    // Determine min/max for coloring
+    const values = Object.values(mapData);
+    const minVal = values.length ? Math.min(...values) : 0;
+    const maxVal = values.length ? Math.max(...values) : 0;
+
+    try {
+        const map = new jsVectorMap({
+            selector: "#world-map",
+            map: "world",
+            backgroundColor: "transparent",
+            draggable: true,
+            zoomButtons: true,
+            zoomOnScroll: false,
+            regionStyle: {
+                initial: {
+                    fill: html.classList.contains('dark-mode') ? '#374151' : '#e5e7eb',
+                    stroke: borderColor,
+                    strokeWidth: 0.15,
+                    fillOpacity: 1
+                },
+                hover: {
+                    fillOpacity: 0.7,
+                    cursor: 'pointer'
+                }
+            },
+            series: {
+                regions: [{
+                    scale: {
+                        min: primaryColor + '40', // Light opacity
+                        max: primaryColor         // Full opacity
+                    },
+                    attribute: 'fill',
+                    values: mapData,
+                    min: minVal,
+                    max: maxVal,
+                    normalizeFunction: 'polynomial'
+                }]
+            },
+            onRegionTooltipShow(event, tooltip, code) {
+                const count = mapData[code] || 0;
+                tooltip.text(
+                    `<h5 class="mb-0">${tooltip.text()}</h5>` +
+                    `<small class="text-muted">Etkileşim: <b class="text-white">${count}</b></small>`,
+                    true // enable HTML
+                );
+            }
+        });
+
+        // Re-render map on theme change if needed (reload page is easier, but simple background update might work)
+        // Just basic setup for now.
+
+    } catch (e) {
+        console.error("Map Error:", e);
+        document.getElementById('world-map').innerHTML = '<p class="text-center text-muted">Harita yüklenemedi.</p>';
+    }
+
     });
 </script>
 

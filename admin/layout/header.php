@@ -17,7 +17,13 @@ $currentPage = $currentInfo['basename'];
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="../assets/css/admin.css?v=<?php echo time(); ?>">
+    <?php
+    $cssPath = __DIR__ . '/../../assets/css/admin.css';
+    $cssVer = file_exists($cssPath) ? filemtime($cssPath) : '1.0';
+    ?>
+    <link rel="stylesheet" href="../assets/css/admin.css?v=<?php echo $cssVer; ?>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
     <script src="../assets/js/qrcode.js"></script>
 
     <script>
@@ -42,6 +48,7 @@ $currentPage = $currentInfo['basename'];
                 <a href="index.php" class="<?php echo $currentPage === 'index.php' ? 'active' : ''; ?>">Linkler</a>
                 <a href="notes.php" class="<?php echo $currentPage === 'notes.php' ? 'active' : ''; ?>">Notlar</a>
                 <a href="tools.php" class="<?php echo $currentPage === 'tools.php' ? 'active' : ''; ?>">Araçlar</a>
+                <a href="bulk.php" class="<?php echo $currentPage === 'bulk.php' ? 'active' : ''; ?>">İçe/Dışa Aktar</a>
                 <button id="themeToggle" class="theme-toggle" title="Karanlık Mod">🌙</button>
                 <a href="logout.php" class="logout">Çıkış</a>
             </nav>

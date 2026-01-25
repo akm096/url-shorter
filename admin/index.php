@@ -80,12 +80,13 @@ $search = $_GET['search'] ?? null;
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
 
-$allLinks = db\get_all_links($search);
-$totalLinks = count($allLinks);
+// Optimized Pagination
+$totalLinks = db\get_links_count($search);
 $totalPages = max(1, (int) ceil($totalLinks / $perPage));
 $page = min($page, $totalPages);
 $offset = ($page - 1) * $perPage;
-$links = array_slice($allLinks, $offset, $perPage);
+
+$links = db\get_all_links($search, $perPage, $offset);
 
 $stats = db\get_stats();
 

@@ -147,6 +147,14 @@ require_once __DIR__ . '/layout/header.php';
                 <label for="content">İçerik <span class="text-muted">*</span></label>
                 <textarea name="content" id="content" required placeholder="Not içeriğinizi buraya yazın..."
                     style="min-height: 200px;"><?php echo \App\e($content); ?></textarea>
+                <script>
+                    const easyMDE = new EasyMDE({
+                        element: document.getElementById('content'),
+                        spellChecker: false,
+                        status: false,
+                        placeholder: "Not içeriğinizi buraya yazın (Markdown desteklenir)..."
+                    });
+                </script>
             </div>
 
             <div class="form-group d-flex" style="margin-top: 20px;">
