@@ -273,6 +273,145 @@ if ($slug) {
         exit;
     }
 
+    // 3. Koleksiyon kontrolü
+    $collection = db\get_collection_by_slug((string) $slug);
+    if ($collection && (int) $collection['active'] === 1) {
+        $colLinks = db\get_collection_links((int) $collection['id']);
+        $themeColor = $collection['theme_color'] ?: '#ffffff';
+
+        // Determine text color based on background (simple contrast check)
+        // Convert hex to rgb
+        $hex = ltrim($themeColor, '#');
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        $yiq = (($r * 299) + ($g * 587) + ($b * 114)) / 1000;
+        $textColor = ($yiq >= 128) ? '#000000' : '#ffffff';
+        $btnBg = ($yiq >= 128) ? '#000000' : '#ffffff';
+        $btnText = ($yiq >= 128) ? '#ffffff' : '#000000';
+
+        ?>
+        <!DOCTYPE html>
+        <html lang="tr">
+
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title><?php echo \App\e($collection['title']); ?> | Linkler</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: 'Inter', sans-serif;
+                    background-color:
+                        <?php echo $themeColor; ?>
+                    ;
+                    color:
+                        <?php echo $textColor; ?>
+                    ;
+                    min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .container {
+                    width: 90%;
+                    max-width: 400px;
+                    text-align: center;
+                    padding: 40px 0;
+                }
+
+                .profile-title {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    margin-bottom: 0.5rem;
+                }
+
+                .profile-bio {
+                    font-size: 1rem;
+                    opacity: 0.9;
+                    margin-bottom: 2rem;
+                    line-height: 1.5;
+                }
+
+                .link-btn {
+                    display: block;
+                    width: 100%;
+                    padding: 16px;
+                    margin-bottom: 16px;
+                    border-radius: 50px;
+                    /* Pill shape */
+                    background-color:
+                        <?php echo $btnBg; ?>
+                    ;
+                    color:
+                        <?php echo $btnText; ?>
+                    ;
+                    text-decoration: none;
+                    font-weight: 600;
+                    transition: transform 0.2s, opacity 0.2s;
+                    border: 2px solid
+                        <?php echo $btnBg; ?>
+                    ;
+                    box-sizing: border-box;
+                }
+
+                .link-btn:hover {
+                    transform: scale(1.02);
+                    opacity: 0.9;
+                }
+
+                /* Footer / Branding if needed */
+                .branding {
+                    margin-top: 30px;
+                    font-size: 0.8rem;
+                    opacity: 0.7;
+                }
+
+                .branding a {
+                    color: inherit;
+                }
+            </style>
+        </head>
+
+        <body>
+            <div class="container">
+                <h1 class="profile-title"><?php echo \App\e($collection['title']); ?></h1>
+                <?php if ($collection['description']): ?>
+                    <p class="profile-bio"><?php echo nl2br(\App\e($collection['description'])); ?></p>
+                <?php endif; ?>
+
+                <div class="links">
+                    <?php foreach ($colLinks as $link): ?>
+                        <?php 
+                        // Skip inactive links
+                        if ((int)$link['active'] !== 1) continue; 
+                        
+                        // Construct Short URL
+                        $shortUrl = $baseUrl ? ($baseUrl . '/' . $link['slug']) : ('/' . $link['slug']);
+                        ?>
+                        <a href="<?php echo \App\e($shortUrl); ?>" target="_blank" class="link-btn">
+                            <?php echo \App\e($link['title'] ?: $link['target_url']); ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="branding">
+                    <a href="/">URL Kısaltıcı ile oluşturuldu</a>
+                </div>
+            </div>
+        </body>
+
+        </html>
+        <?php
+        exit;
+    }
+
     // Aktif olmayan veya bulunamayan slug için 404
     include __DIR__ . '/404.php';
     exit;

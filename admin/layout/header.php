@@ -49,6 +49,8 @@ $currentPage = $currentInfo['basename'];
                 <a href="notes.php" class="<?php echo $currentPage === 'notes.php' ? 'active' : ''; ?>">Notlar</a>
                 <a href="tools.php" class="<?php echo $currentPage === 'tools.php' ? 'active' : ''; ?>">Araçlar</a>
                 <a href="bulk.php" class="<?php echo $currentPage === 'bulk.php' ? 'active' : ''; ?>">İçe/Dışa Aktar</a>
+                <a href="collections.php"
+                    class="<?php echo $currentPage === 'collections.php' ? 'active' : ''; ?>">Koleksiyonlar</a>
                 <button id="themeToggle" class="theme-toggle" title="Karanlık Mod">🌙</button>
                 <a href="logout.php" class="logout">Çıkış</a>
             </nav>

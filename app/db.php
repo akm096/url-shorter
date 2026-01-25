@@ -960,3 +960,135 @@ function get_note_distribution_stats(string $type, ?int $noteId = null, int $lim
     $stmt = $pdo->query("SELECT $type as name, COUNT(*) as count FROM note_stats $whereSql GROUP BY $type ORDER BY count DESC $limitSql");
     return $stmt->fetchAll(\PDO::FETCH_ASSOC);
 }
+
+// -----------------------------------------------------------------------------
+// COLLECTION FUNCTIONS
+// -----------------------------------------------------------------------------
+
+/**
+ * Yeni koleksiyon oluşturur.
+ */
+function insert_collection(array $data): int
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'INSERT INTO collections (slug, title, description, theme_color, active, created_at)
+         VALUES (:slug, :title, :description, :theme_color, :active, :created_at)'
+    );
+    $stmt->execute([
+        ':slug' => $data['slug'],
+        ':title' => $data['title'] ?? null,
+        ':description' => $data['description'] ?? null,
+        ':theme_color' => $data['theme_color'] ?? '#ffffff',
+        ':active' => $data['active'] ?? 1,
+        ':created_at' => date('Y-m-d H:i:s'),
+    ]);
+    return (int) $pdo->lastInsertId();
+}
+
+/**
+ * Koleksiyonu getirir (slug ile).
+ */
+function get_collection_by_slug(string $slug): ?array
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare('SELECT * FROM collections WHERE slug = ? LIMIT 1');
+    $stmt->execute([$slug]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+/**
+ * Koleksiyonu getirir (ID ile).
+ */
+function get_collection_by_id(int $id): ?array
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare('SELECT * FROM collections WHERE id = ? LIMIT 1');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+/**
+ * Tüm koleksiyonları listeler.
+ */
+function get_all_collections(): array
+{
+    $pdo = get_db();
+    return $pdo->query('SELECT * FROM collections ORDER BY id DESC')->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+/**
+ * Koleksiyonu günceller.
+ */
+function update_collection(int $id, array $data): void
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'UPDATE collections SET slug = :slug, title = :title, description = :description, theme_color = :theme_color, active = :active 
+         WHERE id = :id'
+    );
+    $stmt->execute([
+        ':slug' => $data['slug'],
+        ':title' => $data['title'],
+        ':description' => $data['description'],
+        ':theme_color' => $data['theme_color'],
+        ':active' => $data['active'],
+        ':id' => $id
+    ]);
+}
+
+/**
+ * Koleksiyonu siler.
+ */
+function delete_collection(int $id): void
+{
+    $pdo = get_db();
+    // Cascade delete handle by DB but explicit just in case
+    $pdo->prepare('DELETE FROM collection_links WHERE collection_id = ?')->execute([$id]);
+    $pdo->prepare('DELETE FROM collections WHERE id = ?')->execute([$id]);
+}
+
+/**
+ * Koleksiyona link ekler.
+ */
+function add_link_to_collection(int $collectionId, int $linkId): void
+{
+    $pdo = get_db();
+    // Check if exists
+    $stmt = $pdo->prepare('SELECT id FROM collection_links WHERE collection_id = ? AND link_id = ?');
+    $stmt->execute([$collectionId, $linkId]);
+    if ($stmt->fetch())
+        return; // Already exists
+
+    $pdo->prepare('INSERT INTO collection_links (collection_id, link_id) VALUES (?, ?)')
+        ->execute([$collectionId, $linkId]);
+}
+
+/**
+ * Koleksiyondan link çıkarır.
+ */
+function remove_link_from_collection(int $collectionId, int $linkId): void
+{
+    $pdo = get_db();
+    $pdo->prepare('DELETE FROM collection_links WHERE collection_id = ? AND link_id = ?')
+        ->execute([$collectionId, $linkId]);
+}
+
+/**
+ * Koleksiyondaki linkleri getirir.
+ */
+function get_collection_links(int $collectionId): array
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+        'SELECT l.*, cl.sort_order 
+         FROM links l 
+         JOIN collection_links cl ON l.id = cl.link_id 
+         WHERE cl.collection_id = ? 
+         ORDER BY cl.sort_order ASC, cl.id ASC'
+    );
+    $stmt->execute([$collectionId]);
+    return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
