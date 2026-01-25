@@ -14,6 +14,8 @@ Basit, güvenli ve hızlı URL kısaltma servisi. PHP ile yazılmış, framework
 - ✅ Veritabanı Yedekleme (Admin panelinden SQL indirme)
 - ✅ Admin paneli (Karanlık Mod desteği ile)
 - ✅ Toplu İşlemler (Silme, Aktif/Pasif yapma - Hızlı Yönetim)
+- ✅ Toplu İçe/Dışa Aktarma (CSV üzerinden link yükleme ve yedekleme)
+- ✅ Link Koleksiyonları (Bio Pages - Linktree tarzı paylaşım sayfaları)
 - ✅ CSRF ve Brute-force koruması
 - ✅ MySQL ve SQLite desteği
 - ✅ InfinityFree uyumlu (shared hosting)
@@ -99,6 +101,9 @@ Ana sayfa (`/`) üzerinden herkes URL kısaltabilir.
 │   ├── login.php       # Giriş sayfası
 │   ├── new.php         # Yeni link ekleme
 │   ├── edit.php        # Link düzenleme
+│   ├── bulk.php        # Toplu içe/dışa aktarma
+│   ├── collections.php # Koleksiyon listesi
+│   ├── collection_edit.php # Koleksiyon düzenleme
 │   └── logout.php      # Çıkış
 ├── app/
 │   ├── config.php      # Konfigürasyon (gitignore)
