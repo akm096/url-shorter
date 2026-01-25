@@ -139,7 +139,8 @@ function generate_random_slug(int $length = 6): string
             $slug .= $characters[random_int(0, $maxIndex)];
         }
         // slug kullanılıyor mu? varsa yeniden üret
-        $existing = db\get_link_by_slug($slug);
-    } while ($existing !== null);
+        $existingLink = db\get_link_by_slug($slug);
+        $existingNote = db\get_note_by_slug($slug);
+    } while ($existingLink !== null || $existingNote !== null);
     return $slug;
 }
