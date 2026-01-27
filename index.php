@@ -801,6 +801,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     onclick="switchTab('url')">Link Kısalt</div>
                 <div id="tab-note" class="nav-tab <?php echo $active_tab === 'note' ? 'active' : ''; ?>"
                     onclick="switchTab('note')">Not Oluştur</div>
+                <div id="tab-qr" class="nav-tab" onclick="switchTab('qr')">QR Oluştur</div>
             </div>
 
             <?php if ($error): ?>
@@ -952,6 +953,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <button type="submit" class="btn btn-primary" style="width: 100%;">Not Oluştur</button>
                 </form>
             </div>
+
+            <!-- QR Code Form (Client Side) -->
+            <div id="form-qr" class="form-section">
+                <style>
+                    .qr-type-selector {
+                        display: flex;
+                        gap: 20px;
+                        margin-bottom: 20px;
+                        padding: 10px;
+                        background: var(--bg-color);
+                        border-radius: var(--radius);
+                        border: 1px solid var(--border-color);
+                    }
+
+                    .qr-type-selector label {
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        font-weight: 500;
+                    }
+                </style>
+
+                <div class="qr-type-selector">
+                    <label><input type="radio" name="qr_type" value="text" checked onchange="toggleQrInputs()"> Link /
+                        Metin</label>
+                    <label><input type="radio" name="qr_type" value="wifi" onchange="toggleQrInputs()"> Wi-Fi
+                        Paylaşımı</label>
+                </div>
+
+                <div id="qr-input-text">
+                    <div class="form-group">
+                        <label for="qr_text">Metin veya Link <span class="text-muted">*</span></label>
+                        <input type="text" id="qr_text" placeholder="https://ornek.com veya herhangi bir metin"
+                            style="width: 100%; box-sizing: border-box;">
+                    </div>
+                </div>
+
+                <div id="qr-input-wifi" style="display:none;">
+                    <div class="form-group">
+                        <label for="wifi_ssid">Ağ Adı (SSID) <span class="text-muted">*</span></label>
+                        <input type="text" id="wifi_ssid" placeholder="Wi-Fi ağınızın adı">
+                    </div>
+                    <div class="form-group">
+                        <label for="wifi_password">Şifre</label>
+                        <input type="text" id="wifi_password" placeholder="Wi-Fi şifreniz">
+                    </div>
+                    <div class="form-group">
+                        <label for="wifi_encryption">Şifreleme Türü</label>
+                        <select id="wifi_encryption"
+                            style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius); background-color: var(--bg-color); color: var(--text-color); font-size: 1rem; transition: border-color 0.2s;">
+                            <option value="WPA">WPA/WPA2 (Standart)</option>
+                            <option value="WEP">WEP</option>
+                            <option value="nopass">Şifresiz</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="wifi_hidden" style="width: auto; height: auto;">
+                            Gizli Ağ
+                        </label>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-primary" style="width: 100%;" onclick="generateCustomQR()">QR
+                    Oluştur</button>
+
+                <div id="qr-result-area"
+                    style="display:none; text-align: center; margin-top: 30px; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); color: black;">
+                    <div id="custom-qrcode" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
+                    <div style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">QR Kodu başarıyla oluşturuldu!
+                    </div>
+                    <button type="button" class="btn btn-outline" style="border-color: #000; color: #000;"
+                        onclick="downloadQR()">PNG Olarak İndir</button>
+                </div>
+            </div>
         </div>
 
         <footer style="margin-top: 40px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
@@ -1011,6 +1088,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 toggleBtn.textContent = '🌙';
             }
         });
+
+        // QR Code Functions
+        function toggleQrInputs() {
+            const type = document.querySelector('input[name="qr_type"]:checked').value;
+            if (type === 'text') {
+                document.getElementById('qr-input-text').style.display = 'block';
+                document.getElementById('qr-input-wifi').style.display = 'none';
+            } else {
+                document.getElementById('qr-input-text').style.display = 'none';
+                document.getElementById('qr-input-wifi').style.display = 'block';
+            }
+            document.getElementById('qr-result-area').style.display = 'none';
+        }
+
+        var customQrObj = null;
+
+        function generateCustomQR() {
+            const type = document.querySelector('input[name="qr_type"]:checked').value;
+            let qrText = '';
+
+            if (type === 'text') {
+                qrText = document.getElementById('qr_text').value.trim();
+                if (!qrText) {
+                    alert('Lütfen bir metin veya link girin.');
+                    return;
+                }
+            } else {
+                const ssid = document.getElementById('wifi_ssid').value.trim();
+                const password = document.getElementById('wifi_password').value;
+                const encryption = document.getElementById('wifi_encryption').value;
+                const hidden = document.getElementById('wifi_hidden').checked;
+
+                if (!ssid) {
+                    alert('Lütfen ağ adını (SSID) girin.');
+                    return;
+                }
+
+                // WIFI:S:MySSID;T:WPA;P:MyPass;H:false;;
+                qrText = `WIFI:S:${ssid};T:${encryption};P:${password};H:${hidden};;`;
+            }
+
+            const container = document.getElementById('custom-qrcode');
+            container.innerHTML = ''; // Clear previous
+
+            // Show result area to ensure container is visible for rendering
+            document.getElementById('qr-result-area').style.display = 'block';
+
+            customQrObj = new QRCode(container, {
+                text: qrText,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function downloadQR() {
+            const container = document.getElementById('custom-qrcode');
+            const img = container.querySelector('img');
+            if (img && img.src) {
+                const link = document.createElement('a');
+                link.href = img.src;
+                link.download = 'qrcode.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                // Fallback for canvas if img not ready (some browsers)
+                const canvas = container.querySelector('canvas');
+                if (canvas) {
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL("image/png");
+                    link.download = 'qrcode.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert('QR kod henüz hazır değil, lütfen tekrar deneyin.');
+                }
+            }
+        }
     </script>
 </body>
 
