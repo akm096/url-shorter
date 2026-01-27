@@ -11,3 +11,12 @@
 /storage/*.sqlite
 /storage/*.log
 /storage/logs/
+
+# Development files
+TASK.md
+test_import.csv
+.db_init
+storage/.db_init
+.vscode/
+.idea/
+.git/

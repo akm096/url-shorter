@@ -50,4 +50,6 @@ return [
 
   // Google Safe Browsing API Key (Leave empty to disable)
   'safe_browsing_api_key' => '',
+
+
 ];

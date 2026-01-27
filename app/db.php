@@ -63,8 +63,12 @@ function get_db(): PDO
         } else {
             throw new \RuntimeException('Desteklenmeyen veritabanı sürücüsü: ' . $driver);
         }
-        // Veritabanı tablolarını hazırlayalım
-        initialize_database($pdo, $driver);
+        // Veritabanı tablolarını hazırlayalım (Sadece ilk kurulumda)
+        $initLockFile = __DIR__ . '/../storage/.db_init';
+        if (!file_exists($initLockFile)) {
+            initialize_database($pdo, $driver);
+            @touch($initLockFile);
+        }
         return $pdo;
     } catch (PDOException $e) {
         // Bağlantı hatası durumunda kullanıcıya temiz bir mesaj vermek için özel hata yakalayabiliriz

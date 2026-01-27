@@ -260,6 +260,54 @@ function check_rate_limit(string $ip, string $action, int $limit, int $seconds):
 }
 
 /**
+ * Sends a POST request using CURL with file_get_contents fallback.
+ * 
+ * @param string $url
+ * @param array $data
+ * @return string|false
+ */
+function http_post(string $url, array $data)
+{
+    $query = http_build_query($data);
+
+    // Try cURL first
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Often needed on shared hosting
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+
+        $result = curl_exec($ch);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($result !== false && !$error) {
+            return $result;
+        }
+    }
+
+    // Fallback to file_get_contents
+    if (ini_get('allow_url_fopen')) {
+        $options = [
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => $query,
+                'timeout' => 5,
+                'ignore_errors' => true
+            ]
+        ];
+        $context = stream_context_create($options);
+        return @file_get_contents($url, false, $context);
+    }
+
+    return false;
+}
+
+/**
  * Check if URL is safe using Google Safe Browsing API.
  * Returns true if safe (or API not configured), false if malicious.
  * 

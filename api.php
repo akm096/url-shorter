@@ -68,11 +68,19 @@ if (!$action) {
 
 // --- Action: Shorten URL ---
 if ($action === 'shorten') {
+    if (!check_auth($config)) {
+        send_json(['error' => 'Unauthorized'], 401);
+    }
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         send_json(['error' => 'Method not allowed'], 405);
     }
 
     $target_url = trim($input['target_url'] ?? '');
+
+    // Telegram'dan gelen komutları (/link https://...) temizle
+    $target_url = preg_replace('/^\/(link|shorten)\s+/', '', $target_url);
+
     $custom_slug = trim($input['slug'] ?? '');
     $title = trim($input['title'] ?? '');
 
@@ -143,6 +151,10 @@ if ($action === 'shorten') {
 
 // --- Action: Create Note ---
 if ($action === 'note') {
+    if (!check_auth($config)) {
+        send_json(['error' => 'Unauthorized'], 401);
+    }
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         send_json(['error' => 'Method not allowed'], 405);
     }
