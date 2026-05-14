@@ -198,6 +198,9 @@ if ($slug) {
             <!-- Markdown Parser & Sanitizer -->
             <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+            <!-- KaTeX for Math Rendering -->
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+            <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
             <script>
                 // Init Dark Mode
                 (function () {
@@ -291,6 +294,35 @@ if ($slug) {
                 .dark-mode .markdown-body pre {
                     background-color: #161b22;
                 }
+
+                /* KaTeX Math Styles */
+                .markdown-body .math-inline {
+                    display: inline;
+                }
+
+                .markdown-body .math-block {
+                    display: block;
+                    text-align: center;
+                    margin: 1em 0;
+                    overflow-x: auto;
+                }
+
+                .markdown-body .math-block .katex-display {
+                    margin: 0;
+                }
+
+                .markdown-body .katex {
+                    font-size: 1.1em;
+                }
+
+                .markdown-body .math-error {
+                    color: #e74c3c;
+                    font-family: monospace;
+                    font-size: 0.9em;
+                    background: rgba(231, 76, 60, 0.1);
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                }
             </style>
         </head>
 
@@ -316,13 +348,58 @@ if ($slug) {
                 </div>
             </div>
             <script>
-                // Markdown Rendering Logic
+                // Markdown + Math Rendering Logic
                 document.addEventListener('DOMContentLoaded', () => {
-                    const rawContent = document.getElementById('raw-content').textContent;
+                    let rawContent = document.getElementById('raw-content').textContent;
                     const renderContainer = document.getElementById('render-content');
 
-                    // Parse and Sanitize
-                    const cleanHtml = DOMPurify.sanitize(marked.parse(rawContent));
+                    // Step 1: Protect LaTeX expressions from Markdown parser
+                    const mathBlocks = [];
+                    const mathInlines = [];
+
+                    // Block math: $$...$$
+                    rawContent = rawContent.replace(/\$\$([\s\S]+?)\$\$/g, (match, tex) => {
+                        mathBlocks.push(tex.trim());
+                        return '%%MATH_BLOCK_' + (mathBlocks.length - 1) + '%%';
+                    });
+
+                    // Inline math: $...$ (not greedy, single line)
+                    rawContent = rawContent.replace(/\$([^\$\n]+?)\$/g, (match, tex) => {
+                        mathInlines.push(tex.trim());
+                        return '%%MATH_INLINE_' + (mathInlines.length - 1) + '%%';
+                    });
+
+                    // Also handle standalone LaTeX commands without dollar signs
+                    rawContent = rawContent.replace(/(\\(?:frac|sqrt|sin|cos|tan|log|ln|arccos|arcsin|arctan|log_|sum|prod|int|lim|infty|pi|alpha|beta|gamma|theta|Delta|Omega|Rightarrow|Leftarrow|cdot|times|div|pm|mp|leq|geq|neq|approx|equiv|subset|supset|cap|cup|in|notin|forall|exists|partial|nabla|hbar|ell)(?:[_^{}()\[\]\d\w\s\\,.*+\-]+)*)/g, (match, tex) => {
+                        mathInlines.push(tex.trim());
+                        return '%%MATH_INLINE_' + (mathInlines.length - 1) + '%%';
+                    });
+
+                    // Step 2: Parse Markdown
+                    let html = marked.parse(rawContent);
+
+                    // Step 3: Restore and render math with KaTeX
+                    html = html.replace(/%%MATH_BLOCK_(\d+)%%/g, (match, idx) => {
+                        try {
+                            return '<div class="math-block">' + katex.renderToString(mathBlocks[parseInt(idx)], { displayMode: true, throwOnError: false }) + '</div>';
+                        } catch (e) {
+                            return '<span class="math-error">' + mathBlocks[parseInt(idx)] + '</span>';
+                        }
+                    });
+
+                    html = html.replace(/%%MATH_INLINE_(\d+)%%/g, (match, idx) => {
+                        try {
+                            return '<span class="math-inline">' + katex.renderToString(mathInlines[parseInt(idx)], { displayMode: false, throwOnError: false }) + '</span>';
+                        } catch (e) {
+                            return '<span class="math-error">' + mathInlines[parseInt(idx)] + '</span>';
+                        }
+                    });
+
+                    // Step 4: Sanitize but allow KaTeX elements
+                    const cleanHtml = DOMPurify.sanitize(html, {
+                        ADD_TAGS: ['span', 'div', 'math', 'mrow', 'mi', 'mo', 'mn', 'msup', 'msub', 'mfrac', 'msqrt', 'mroot', 'mover', 'munder', 'mtable', 'mtr', 'mtd', 'mtext', 'mspace', 'annotation', 'semantics'],
+                        ADD_ATTR: ['class', 'style', 'aria-hidden', 'role', 'xmlns', 'mathvariant', 'encoding', 'height', 'width', 'viewBox', 'preserveAspectRatio', 'focusable', 'd']
+                    });
                     renderContainer.innerHTML = cleanHtml;
                 });
 
